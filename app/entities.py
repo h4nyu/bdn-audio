@@ -1,27 +1,13 @@
 import typing as t
 
 
-class Label:
-    id: int
-    category: str
-    detail: str
-
-    def __init__(self, id: int, category: str, detail: str) -> None:
-        self.id = id
-        self.category = category
-        self.detail = detail
-
-
-Labels = t.Dict[int, Label]
-
-
-class Annotation:
+class Audio:
     id: str
-    label_ids: t.Sequence[int]
+    waveform: t.Any
 
-    def __init__(self, id: str, label_ids: t.Sequence[int]) -> None:
+    def __init__(self, id: str, waveform: t.Any) -> None:
         self.id = id
-        self.label_ids = label_ids
+        self.waveform = waveform
 
 
-Annotations = t.List[Annotation]
+Audios = t.List[Audio]

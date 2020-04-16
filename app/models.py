@@ -172,7 +172,7 @@ class SENeXt(nn.Module):
         depth: int,
         width: int,
         ratio: float = 2.0,
-        stride: int = 4
+        stride: int = 4,
     ) -> None:
         super().__init__()
         self.in_conv = ConvBR2d(in_channels, width, is_activation=False)
@@ -192,7 +192,7 @@ class SENeXt(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
             nn.Dropout(),
-            nn.Linear(int(width * ratio ** depth), out_channels), 
+            nn.Linear(int(width * ratio ** depth), out_channels),
             nn.Sigmoid(),
         )
 
