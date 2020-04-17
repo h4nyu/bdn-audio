@@ -19,7 +19,7 @@ class SkipOrExecute:
         path = self._cache_dir.joinpath(self._key)
         if path.exists():
             if self.logger is not None:
-                self.logger.info(f"skip key={self._key}")
+                self.logger.info(f"skip {self._key}")
             return joblib.load(path)
         else:
             res: t.Any = self._f(*args, **kwargs)
