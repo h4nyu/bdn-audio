@@ -5,8 +5,10 @@ from .config import NOISED_TGT_DIR, RAW_TGT_DIR
 from .preprocess import load_audios, show_specgram, save_wav
 from concurrent import futures
 from pathlib import Path
+from logging import getLogger
 
-cache = Cache("/srv/store/tmp")
+logger = getLogger(__name__)
+cache = Cache("/srv/store/tmp", logger)
 
 
 def eda() -> t.Any:
