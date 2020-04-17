@@ -5,6 +5,20 @@ import joblib
 F = t.TypeVar("F", bound=t.Callable[..., t.Any])
 
 
+class SkipOrExecute:
+    def __init__(self, path: Path, f: F) -> None:
+        self.path = path
+        self.f = f
+
+    def __call__(self, *args: t.Any, **kwargs: t.Any) -> t.Any:
+        if self.path.exists():
+            return joblib.load(self.path)
+        else:
+            res: t.Any = self.f(*args, **kwargs)
+            joblib.dump(res, self.path)
+            return res
+
+
 class Cache:
     def __init__(self, cache_dir: str) -> None:
         self.cache_dir = Path(cache_dir)
@@ -12,19 +26,5 @@ class Cache:
 
     def __call__(self, key: str, f: F) -> F:
         path = self.cache_dir.joinpath(key)
-
-        def execute(*args: t.Any, **kwargs: t.Any) -> t.Any:
-            print(f"execute {key}")
-            res = f(*args, **kwargs)
-            joblib.dump(res, path)
-            return res
-
-        def skip(*args: t.Any, **kwargs: t.Any) -> t.Any:
-            print(f"skip {key}")
-            res = joblib.load(path)
-            return res
-
-        if path.exists():
-            return t.cast(F, skip)
-        else:
-            return t.cast(F, execute)
+        caller = SkipOrExecute(path, f)
+        return t.cast(F, caller)
