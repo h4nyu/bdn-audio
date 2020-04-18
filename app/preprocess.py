@@ -43,7 +43,8 @@ def show_detail(audio: Audio, path: t.Union[str, Path]) -> None:
     fig, axs = plt.subplots(3, sharex=True)
     im = axs[0].imshow(spectrogram,interpolation='nearest',cmap='jet')
     axs[0].set_aspect('auto')
-    axs[1].imshow(np.diff(spectrogram, axis=0),interpolation='nearest',cmap='jet')
+    diff = np.diff(spectrogram, axis=0)
+    axs[1].imshow(diff,interpolation='nearest',cmap='jet')
     axs[1].set_aspect('auto')
     axs[2].plot(np.sum(spectrogram, axis=0))
 
@@ -51,3 +52,14 @@ def show_detail(audio: Audio, path: t.Union[str, Path]) -> None:
     plt.savefig(path)
     plt.close()
 
+class Noise:
+    def __init__(self, p:float=0.1) -> None:
+        self.p = p
+
+    def __call__(self, audio:Audio) -> Audio:
+        spectrogram = audio.spectrogram
+        fill_value = np.min(spectrogram)
+        mask = np.random.choice([False, True], size=spectrogram.shape, p=[self.p, (1-self.p)])
+        inverted_mask = np.logical_not(mask)
+        masked = spectrogram*mask + inverted_mask*fill_value
+        return Audio(audio.id, masked)

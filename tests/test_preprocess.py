@@ -1,5 +1,6 @@
+import numpy as np
 from concurrent import futures
-from app.preprocess import load_audios
+from app.preprocess import load_audios, Noise
 from app.config import NOISED_TGT_DIR
 
 
@@ -9,3 +10,11 @@ def test_load_audios() -> None:
     first_item = res[0]
     print(first_item.id)
     print(first_item.spectrogram.shape)
+
+def test_noise() -> None:
+    arr = np.array([[1, 2, 3, 4],
+                    [1, 2, 3, 4],
+                    [1, 2, 3, 4],
+                    [1, 2, 3, 4],
+                    [1, 2, 3, 4]])
+    Noise()(arr)

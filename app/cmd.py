@@ -1,7 +1,8 @@
 import typer
-from .pipeline import eda, train
+from .pipeline import eda, train, dummy_aug
 
 app = typer.Typer()
 
 app.command()(eda)
 app.command()(train)
+app.command()(dummy_aug)
