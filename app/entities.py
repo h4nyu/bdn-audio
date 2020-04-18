@@ -3,11 +3,11 @@ import typing as t
 
 class Audio:
     id: str
-    waveform: t.Any
+    spectrogram: t.Any
 
-    def __init__(self, id: str, waveform: t.Any) -> None:
+    def __init__(self, id: str, spectrogram: t.Any) -> None:
         self.id = id
-        self.waveform = waveform
+        self.spectrogram = spectrogram
 
 
 Audios = t.List[Audio]

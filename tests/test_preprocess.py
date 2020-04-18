@@ -8,4 +8,4 @@ def test_load_audios() -> None:
     assert len(res) == 30
     first_item = res[0]
     print(first_item.id)
-    print(first_item.waveform.shape)
+    print(first_item.spectrogram.shape)

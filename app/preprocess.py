@@ -13,13 +13,12 @@ from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
 from .entities import Audios, Audio
 from cytoolz.curried import unique, pipe, map, mapcat, frequencies, topk
 import matplotlib.pyplot as plt
-import seaborn as sns
 from app.config import NOISED_TGT_DIR, RAW_TGT_DIR
 from librosa import display
 from librosa.feature.inverse import mel_to_audio
 from librosa.output import write_wav
+import librosa
 
-sns.set()
 
 
 def load_audios(dirctory: str) -> Audios:
@@ -29,19 +28,26 @@ def load_audios(dirctory: str) -> Audios:
         matched = re.search(r"\d+", p)
         if matched is not None:
             id = matched.group(0)
-            waveform = np.load(p)
-            audios.append(Audio(id, waveform))
+            spectrogram = np.load(p)
+            audios.append(Audio(id, spectrogram))
     return audios
 
 
 def save_wav(audio: Audio, path: t.Union[str, Path]) -> None:
-    signal = mel_to_audio(audio.waveform)
+    signal = mel_to_audio(audio.spectrogram)
     write_wav(path, signal, sr=22050)
 
 
-def show_specgram(audio: Audio, path: t.Union[str, Path]) -> None:
-    # https://librosa.github.io/librosa/generated/librosa.feature.melspectrogram.html
-    display.specshow(audio.waveform)
-    plt.colorbar()
+def show_detail(audio: Audio, path: t.Union[str, Path]) -> None:
+    spectrogram = librosa.power_to_db(audio.spectrogram)
+    fig, axs = plt.subplots(3, sharex=True)
+    im = axs[0].imshow(spectrogram,interpolation='nearest',cmap='jet')
+    axs[0].set_aspect('auto')
+    axs[1].imshow(np.diff(spectrogram, axis=0),interpolation='nearest',cmap='jet')
+    axs[1].set_aspect('auto')
+    axs[2].plot(np.sum(spectrogram, axis=0))
+
+    fig.tight_layout()
     plt.savefig(path)
     plt.close()
+

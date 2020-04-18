@@ -2,29 +2,39 @@ from pathlib import Path
 import typing as t
 from .cache import Cache
 from .config import NOISED_TGT_DIR, RAW_TGT_DIR
-from .preprocess import load_audios, show_specgram, save_wav
+from .preprocess import load_audios, show_detail, save_wav
 from concurrent import futures
 from pathlib import Path
 from logging import getLogger
 
 logger = getLogger(__name__)
-cache = Cache("/srv/store/tmp", logger)
+cache = Cache("/store/tmp")
 
 
 def eda() -> t.Any:
     executor = futures.ProcessPoolExecutor()
-    plot_dir = Path("/tmp/ccc")
-    plot_dir.mkdir(exist_ok=True)
     noised_audios = load_audios(NOISED_TGT_DIR)
-    plot_dir = Path("/srv/store/plot")
+    plot_dir = Path("/store/plot")
     plot_dir.mkdir(exist_ok=True)
-    wav_dir = Path("/srv/store/wav")
+    wav_dir = Path("/store/wav")
     wav_dir.mkdir(exist_ok=True)
 
     futures.wait(
         [
             executor.submit(
-                cache(f"noised-specgram-{audio.id}", show_specgram),
+                show_detail,
+                audio,
+                plot_dir.joinpath(f"noised-specgram-{audio.id}.png"),
+            )
+            for audio in noised_audios
+        ]
+    )
+
+
+    futures.wait(
+        [
+            executor.submit(
+                show_detail,
                 audio,
                 plot_dir.joinpath(f"noised-specgram-{audio.id}.png"),
             )
@@ -46,7 +56,7 @@ def eda() -> t.Any:
     futures.wait(
         [
             executor.submit(
-                cache(f"raw-specgram-{audio.id}", show_specgram),
+                show_detail,
                 audio,
                 plot_dir.joinpath(f"raw-specgram-{audio.id}.png"),
             )
@@ -63,6 +73,9 @@ def eda() -> t.Any:
             for audio in raw_audios
         ]
     )
+    #  cache("summary-noised", summary)(noised_audios)
+    #  noised_summary = summary(noised_audios)
+    #  logger.info(f"{noised_summary=}")
 
 
 def train() -> t.Any:
