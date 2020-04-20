@@ -20,7 +20,6 @@ from librosa.output import write_wav
 import librosa
 
 
-
 def load_audios(dirctory: str) -> Audios:
     paths = glob.glob(os.path.join(dirctory, "*.npy"))
     audios: Audios = []
@@ -38,28 +37,55 @@ def save_wav(audio: Audio, path: t.Union[str, Path]) -> None:
     write_wav(path, signal, sr=22050)
 
 
+def summary(audios: Audios) -> t.Dict[str, t.Any]:
+    shapes = [x.spectrogram.shape for x in audios]
+    length_range = (
+        min([x[1] for x in shapes]),
+        max([x[1] for x in shapes]),
+    )
+    return {"length_range": length_range}
+
+
 def show_detail(audio: Audio, path: t.Union[str, Path]) -> None:
     spectrogram = librosa.power_to_db(audio.spectrogram)
     fig, axs = plt.subplots(3, sharex=True)
-    im = axs[0].imshow(spectrogram,interpolation='nearest',cmap='jet')
-    axs[0].set_aspect('auto')
+    im = axs[0].imshow(spectrogram, interpolation="nearest", cmap="gray")
+    axs[0].set_aspect("auto")
     diff = np.diff(spectrogram, axis=0)
-    axs[1].imshow(diff,interpolation='nearest',cmap='jet')
-    axs[1].set_aspect('auto')
+    axs[1].imshow(diff, interpolation="nearest", cmap="gray")
+    axs[1].set_aspect("auto")
     axs[2].plot(np.sum(spectrogram, axis=0))
 
     fig.tight_layout()
     plt.savefig(path)
     plt.close()
 
+
 class Noise:
-    def __init__(self, p:float=0.1) -> None:
+    def __init__(self, p: float = 0.2) -> None:
         self.p = p
 
-    def __call__(self, audio:Audio) -> Audio:
-        spectrogram = audio.spectrogram
+    def __call__(self, spectrogram: t.Any) -> t.Any:
         fill_value = np.min(spectrogram)
-        mask = np.random.choice([False, True], size=spectrogram.shape, p=[self.p, (1-self.p)])
+        mask = np.random.choice(
+            [False, True], size=spectrogram.shape, p=[self.p, (1 - self.p)]
+        )
         inverted_mask = np.logical_not(mask)
-        masked = spectrogram*mask + inverted_mask*fill_value
-        return Audio(audio.id, masked)
+        masked = spectrogram * mask + inverted_mask * fill_value
+        return masked
+
+
+class RandomCrop1d:
+    def __init__(self, length: int) -> None:
+        self.length = length
+
+    def __call__(self, x: t.Any, y: t.Any) -> t.Tuple[t.Any, t.Any]:
+        shape = x.shape
+        high = shape[1] - self.length
+        start = np.random.randint(low=0, high=high)
+        return x[:, start : start + self.length], y[:, start : start + self.length]
+
+
+class ToDeciBell:
+    def __init__(self,) -> None:
+        ...

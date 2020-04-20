@@ -11,10 +11,9 @@ def test_load_audios() -> None:
     print(first_item.id)
     print(first_item.spectrogram.shape)
 
+
 def test_noise() -> None:
-    arr = np.array([[1, 2, 3, 4],
-                    [1, 2, 3, 4],
-                    [1, 2, 3, 4],
-                    [1, 2, 3, 4],
-                    [1, 2, 3, 4]])
+    arr = np.array(
+        [[1, 2, 3, 4], [1, 2, 3, 4], [1, 2, 3, 4], [1, 2, 3, 4], [1, 2, 3, 4]]
+    )
     Noise()(arr)
