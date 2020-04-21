@@ -21,10 +21,10 @@ class Dataset(_Dataset):
 
     def transform(self, audio: Audio) -> t.Tuple[t.Any, t.Any]:
         raw = audio.spectrogram.copy()
-        noised = Noise(p=0.2)(audio.spectrogram.copy())
+        noised = Noise(p=0.5)(audio.spectrogram.copy())
         noised, raw = RandomCrop1d(self.length)(noised, raw)
         noised = librosa.power_to_db(noised)
-        raw = librosa.power_to_db(noised)
+        raw = librosa.power_to_db(raw)
         return noised, raw
 
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, t.Any]:

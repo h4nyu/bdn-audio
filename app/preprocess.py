@@ -32,8 +32,8 @@ def load_audios(dirctory: str) -> Audios:
     return audios
 
 
-def save_wav(audio: Audio, path: t.Union[str, Path]) -> None:
-    signal = mel_to_audio(audio.spectrogram)
+def save_wav(spectrogram: t.Any, path: t.Union[str, Path]) -> None:
+    signal = mel_to_audio(spectrogram)
     write_wav(path, signal, sr=22050)
 
 
