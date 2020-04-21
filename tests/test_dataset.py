@@ -13,7 +13,5 @@ def test_dataset() -> None:
     for i in range(2):
         x, y = dataset[0]
         x, y = librosa.db_to_power(x), librosa.db_to_power(y)
-        save_wav(x, f'/store/wav/test-x-{i}.wav')
-        save_wav(y, f'/store/wav/test-y-{i}.wav')
-
-
+        save_wav(x, f"/store/wav/test-x-{i}.wav")
+        save_wav(y, f"/store/wav/test-y-{i}.wav")

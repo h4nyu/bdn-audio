@@ -26,10 +26,36 @@ class FocalLoss(nn.Module):
             return F_loss
 
 
+class SSE1d(nn.Module):
+    def __init__(self, in_channels: int) -> None:
+        super().__init__()
+        self.se = nn.Sequential(nn.Conv1d(in_channels, 1, 1), nn.Sigmoid())
+
+    def forward(self, x):  # type: ignore
+        x = x * self.se(x)
+        return x
+
+
 class SSEModule(nn.Module):
     def __init__(self, in_channels: int) -> None:
         super().__init__()
         self.se = nn.Sequential(nn.Conv2d(in_channels, 1, 1), nn.Sigmoid())
+
+    def forward(self, x):  # type: ignore
+        x = x * self.se(x)
+        return x
+
+
+class CSE1d(nn.Module):
+    def __init__(self, in_channels: int, reduction: int) -> None:
+        super().__init__()
+        self.se = nn.Sequential(
+            nn.AdaptiveAvgPool1d(1),
+            nn.Conv1d(in_channels, in_channels // reduction, 1),
+            nn.ReLU(inplace=True),
+            nn.Conv1d(in_channels // reduction, in_channels, 1),
+            nn.Sigmoid(),
+        )
 
     def forward(self, x):  # type: ignore
         x = x * self.se(x)
@@ -57,6 +83,16 @@ class SCSEModule(nn.Module):
         super().__init__()
         self.c_se = CSEModule(in_channels, reduction)
         self.s_se = SSEModule(in_channels)
+
+    def forward(self, x):  # type: ignore
+        return self.c_se(x) + self.s_se(x)
+
+
+class SCSE1d(nn.Module):
+    def __init__(self, in_channels: int, reduction: int = 16) -> None:
+        super().__init__()
+        self.c_se = CSE1d(in_channels, reduction)
+        self.s_se = SSE1d(in_channels)
 
     def forward(self, x):  # type: ignore
         return self.c_se(x) + self.s_se(x)
