@@ -9,7 +9,7 @@ from skimage import io
 import glob
 from tqdm import tqdm
 from sklearn.metrics import fbeta_score
-from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
+from sklearn.model_selection import KFold as _KFold
 from .entities import Audios, Audio
 from cytoolz.curried import unique, pipe, map, mapcat, frequencies, topk
 import matplotlib.pyplot as plt
@@ -28,7 +28,7 @@ def load_audios(dirctory: str) -> Audios:
         if matched is not None:
             id = matched.group(0)
             spectrogram = np.load(p)
-            audios.append(Audio(id, spectrogram))
+            audios.append(Audio(id, librosa.power_to_db(spectrogram)))
     return audios
 
 
@@ -39,15 +39,36 @@ def save_wav(spectrogram: t.Any, path: t.Union[str, Path]) -> None:
 
 def summary(audios: Audios) -> t.Dict[str, t.Any]:
     shapes = [x.spectrogram.shape for x in audios]
+    spectrograms = [x.spectrogram for x in audios]
     length_range = (
         min([x[1] for x in shapes]),
         max([x[1] for x in shapes]),
     )
-    return {"length_range": length_range}
+
+    value_range = (
+        min([np.min(x) for x in spectrograms]),
+        max([np.max(x) for x in spectrograms]),
+    )
+    return {
+        "length_range": length_range,
+        "value_range": value_range,
+    }
 
 
-def show_detail(audio: Audio, path: t.Union[str, Path]) -> None:
-    spectrogram = librosa.power_to_db(audio.spectrogram)
+def plot_spectrograms(
+    spectrograms: t.Sequence[t.Any], path: t.Union[str, Path]
+) -> None:
+    fig, axs = plt.subplots(len(spectrograms), sharex=True)
+    for sp, ax in zip(spectrograms, axs):
+        im = ax.imshow(sp, interpolation="nearest", cmap="gray")
+        fig.colorbar(im, ax=ax)
+        ax.set_aspect("auto")
+    fig.tight_layout()
+    plt.savefig(path)
+    plt.close()
+
+
+def show_detail(spectrogram: t.Any, path: t.Union[str, Path]) -> None:
     fig, axs = plt.subplots(3, sharex=True)
     im = axs[0].imshow(spectrogram, interpolation="nearest", cmap="gray")
     axs[0].set_aspect("auto")
@@ -59,6 +80,16 @@ def show_detail(audio: Audio, path: t.Union[str, Path]) -> None:
     fig.tight_layout()
     plt.savefig(path)
     plt.close()
+
+
+class KFold:
+    def __init__(self, n_split: int = 5) -> None:
+        self.n_split = n_split
+
+    def __call__(self, audios: Audios) -> t.Iterator[t.Tuple[Audios, Audios]]:
+        kf = _KFold(self.n_split, shuffle=False)
+        for train, valid in kf.split(audios):
+            yield [audios[i] for i in train], [audios[i] for i in valid]
 
 
 class Noise:
@@ -86,6 +117,19 @@ class RandomCrop1d:
         return x[:, start : start + self.length], y[:, start : start + self.length]
 
 
-class ToDeciBell:
-    def __init__(self,) -> None:
-        ...
+class Flip1d:
+    def __init__(self, p: float) -> None:
+        self.p = p
+
+    def __call__(self, x: t.Any) -> t.Any:
+        return x - self._avg
+
+
+class Scaler:
+    def __init__(self, high: float, low: float) -> None:
+        self.high = high
+        self.low = low
+        self._avg = (high + low) / 2
+
+    def __call__(self, x: t.Any) -> t.Any:
+        return x - self._avg

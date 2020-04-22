@@ -2,7 +2,9 @@ from pathlib import Path
 import typing as t
 from .cache import Cache
 from .config import NOISED_TGT_DIR, RAW_TGT_DIR
-from .preprocess import load_audios, show_detail, save_wav, Noise, summary
+from .entities import Audios, Audio
+from .preprocess import load_audios, show_detail, save_wav, Noise, summary, KFold
+from .train import Trainer
 from concurrent import futures
 from pathlib import Path
 from logging import getLogger
@@ -23,7 +25,7 @@ def eda() -> t.Any:
         [
             executor.submit(
                 show_detail,
-                audio,
+                audio.spectrogram,
                 plot_dir.joinpath(f"noised-specgram-{audio.id}.png"),
             )
             for audio in noised_audios
@@ -34,7 +36,7 @@ def eda() -> t.Any:
         [
             executor.submit(
                 show_detail,
-                audio,
+                audio.spectrogram,
                 plot_dir.joinpath(f"noised-specgram-{audio.id}.png"),
             )
             for audio in noised_audios
@@ -55,7 +57,9 @@ def eda() -> t.Any:
     futures.wait(
         [
             executor.submit(
-                show_detail, audio, plot_dir.joinpath(f"raw-specgram-{audio.id}.png"),
+                show_detail,
+                audio.spectrogram,
+                plot_dir.joinpath(f"raw-specgram-{audio.id}.png"),
             )
             for audio in raw_audios
         ]
@@ -80,13 +84,15 @@ def dummy_aug(p: float = 0.2) -> t.Any:
     executor = futures.ProcessPoolExecutor()
     raw_audios = load_audios(RAW_TGT_DIR)
     noise = Noise(p=p)
-    futs, _ = futures.wait([executor.submit(noise, audio,) for audio in raw_audios])
-    noised_audios = [r.result() for r in futs]
+    futs, _ = futures.wait(
+        [executor.submit(noise, audio.spectrogram) for audio in raw_audios]
+    )
+    noised_audios = [Audio(r.id, ft.result()) for r, ft in zip(raw_audios, futs)]
     futures.wait(
         [
             executor.submit(
                 show_detail,
-                audio,
+                audio.spectrogram,
                 plot_dir.joinpath(f"generated-noised-specgram-p-{p}-{audio.id}.png"),
             )
             for audio in noised_audios
@@ -103,5 +109,9 @@ def dummy_aug(p: float = 0.2) -> t.Any:
     )
 
 
-def train() -> t.Any:
-    ...
+def train() -> None:
+    raw_audios = load_audios(RAW_TGT_DIR)
+    kf = KFold(n_split=5)
+    for i, (train, valid) in enumerate(kf(raw_audios)):
+        t = Trainer(train, valid, output_dir=Path(f"/store/model-{i}"))
+        t.train(1000)

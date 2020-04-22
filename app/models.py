@@ -226,7 +226,7 @@ class Up(nn.Module):
     up: t.Union[nn.Upsample, nn.ConvTranspose1d]
 
     def __init__(
-        self, in_channels: int, out_channels: int, bilinear: bool = True,
+        self, in_channels: int, out_channels: int, bilinear: bool = False,
     ) -> None:
         super().__init__()
         # if bilinear, use the normal convolutions to reduce the number of channels
@@ -234,10 +234,10 @@ class Up(nn.Module):
             self.up = nn.Upsample(scale_factor=2, mode="linear", align_corners=True)
         else:
             self.up = nn.ConvTranspose1d(
-                in_channels // 2, in_channels // 2, kernel_size=2, stride=2
+                in_channels, out_channels, kernel_size=2, stride=2
             )
         self.conv1 = ConvBR1d(
-            in_channels + out_channels, out_channels, kernel_size=3, padding=1
+            out_channels + out_channels, out_channels, kernel_size=3, padding=1
         )
         self.conv2 = ConvBR1d(out_channels, out_channels, kernel_size=3, padding=1)
 
@@ -251,41 +251,56 @@ class Up(nn.Module):
         return x
 
 
-#  class SENeXt1d(nn.Module):
-#      def __init__(
-#          self,
-#          in_channels: int,
-#          out_channels: int,
-#          depth: int,
-#          width: int,
-#          ratio: float = 2.0,
-#          stride: int = 4,
-#      ) -> None:
-#          super().__init__()
-#          self.in_conv = ConvBR1d(in_channels, width, is_activation=False)
-#          self.layer = nn.Sequential(
-#              OrderedDict(
-#                  {
-#                      f"layer-{i}": SENextBottleneck1d(
-#                          in_channels=int(width * ratio ** i),
-#                          out_channels=int(width * ratio ** (i + 1)),
-#                          stride=stride,
-#                          groups=int(width * ratio ** (i + 1)) // depth,
-#                      )
-#                      for i in range(depth)
-#                  }
-#              )
-#          )
-#          self.avgpool = nn.AdaptiveAvgPool1d(1)
-#          self.fc = nn.Sequential(
-#              nn.Dropout(),
-#              nn.Linear(int(width * ratio ** depth), out_channels),
-#              nn.Sigmoid(),
-#          )
-#
-#      def forward(self, x):  # type: ignore
-#          x = self.in_conv(x)
-#          x = self.layer(x)
-#          x = self.avgpool(x).view(x.size(0), -1)
-#          x = self.fc(x)
-#          return x
+class UNet(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int) -> None:
+        super().__init__()
+        channels = np.array([128, 256, 512, 1024, 2048])
+
+        self.in_channels = in_channels
+        self.inc = nn.Sequential(
+            ConvBR1d(
+                in_channels=in_channels,
+                out_channels=channels[0],
+                kernel_size=5,
+                stride=1,
+                padding=2,
+            ),
+            ConvBR1d(
+                in_channels=channels[0],
+                out_channels=channels[0],
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            ),
+            ConvBR1d(
+                in_channels=channels[0],
+                out_channels=channels[0],
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            ),
+        )
+        self.down1 = Down(channels[0], channels[1], pool="avg")
+        self.down2 = Down(channels[1], channels[2], pool="avg")
+        self.down3 = Down(channels[2], channels[3], pool="avg")
+        self.down4 = Down(channels[3], channels[4], pool="avg")
+        self.up1 = Up(channels[-1], channels[-2])
+        self.up2 = Up(channels[-2], channels[-3])
+        self.up3 = Up(channels[-3], channels[-4])
+        self.up4 = Up(channels[-4], channels[-5])
+        self.outc = nn.Sequential(
+            nn.Conv1d(channels[-5], out_channels, kernel_size=1, stride=1, padding=0)
+        )
+
+    def forward(self, x):  # type: ignore
+        x1 = self.inc(x)  # [B, 64, L]
+        x2 = self.down1(x1)  # [B, 128, L//2]
+        x3 = self.down2(x2)  # [B, 256, L//4]
+        x4 = self.down3(x3)  # [B, 512, L//8]
+        x5 = self.down4(x4)  # [B, 1024, L//8]
+        x = self.up1(x5, x4)
+        x = self.up2(x, x3)
+        x = self.up3(x, x2)
+        x = self.up4(x, x1)
+        x = self.outc(x)
+        return x

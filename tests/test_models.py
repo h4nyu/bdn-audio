@@ -1,5 +1,5 @@
 import torch
-from app.models import SSE1d, CSE1d, SCSE1d, SENextBottleneck1d, Down
+from app.models import SSE1d, CSE1d, SCSE1d, SENextBottleneck1d, Down, Up, UNet
 
 
 def test_sse1d() -> None:
@@ -34,5 +34,19 @@ def test_down() -> None:
     x = torch.randn(32, 128, 32)
     model = Down(128, 64)
     y = model(x)
-    print(y.shape)
     assert (x.shape[0], 64, x.shape[2] // 2) == y.shape
+
+
+def test_up() -> None:
+    x0 = torch.randn(32, 128, 64)
+    x1 = torch.randn(32, 64, 128)
+    model = Up(128, 64)
+    y = model(x0, x1)
+    assert y.shape == (32, 64, 128)
+
+
+def test_unet() -> None:
+    x = torch.randn(32, 128, 32)
+    model = UNet(128, 128)
+    y = model(x)
+    assert x.shape == y.shape
