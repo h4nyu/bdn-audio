@@ -2,8 +2,8 @@ import numpy as np
 import typing as t
 import json
 import os
-from .entities import Audios
-from .dataset import Dataset
+from .entities import Audios, Audio
+from .dataset import Dataset, PredictDataset
 import os
 import torch
 from pathlib import Path
@@ -17,6 +17,7 @@ from concurrent import futures
 from datetime import datetime
 from .models import UNet
 from logging import getLogger
+import librosa
 from tqdm import tqdm
 from torchvision.transforms import ToTensor
 from .preprocess import plot_spectrograms
@@ -48,12 +49,12 @@ class Trainer:
             "train": DataLoader(
                 Dataset(train_data, length=resolution, mode="train",),
                 shuffle=True,
-                batch_size=8,
+                batch_size=32,
             ),
             "test": DataLoader(
                 Dataset(test_data, length=resolution, mode="test",),
                 shuffle=True,
-                batch_size=8,
+                batch_size=1,
             ),
         }
         self.best_score = np.inf
@@ -96,7 +97,10 @@ class Trainer:
                 pred = self.model(img)
                 loss = self.objective(pred, label)
                 epoch_loss += loss.item()
-                score += loss.item()
+                score += mean_squared_error(
+                    librosa.db_to_power(pred[0].cpu().numpy()),
+                    librosa.db_to_power(label[0].cpu().numpy()),
+                )
 
         plot_spectrograms(
             [
@@ -138,3 +142,41 @@ class Trainer:
                 if score < self.best_score:
                     self.save_checkpoint()
                     self.best_score = score
+
+class Predict:
+    def __init__(self, model_path:str, audios: Audios, output_dir:str) -> None:
+        self.model = UNet(in_channels=128, out_channels=128).double().to(DEVICE)
+        self.model_path = model_path
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(exist_ok=True)
+        self.audios = audios
+        self.length = 16
+        self.data_loader = DataLoader(
+            PredictDataset(audios),
+            shuffle=False,
+            batch_size=1,
+        )
+
+    def __call__(self,) -> Audios:
+        self.model.load_state_dict(
+            torch.load(self.model_path)
+        )
+        self.model.eval()
+        predict_audios:Audios = []
+        with torch.no_grad():
+            for x, ids in self.data_loader:
+                id = ids[0]
+                x = x.to(DEVICE)
+                y = self.model(x)
+
+                x = x[0].cpu().numpy()
+                y = y[0].cpu().numpy()
+                plot_spectrograms(
+                    [
+                        x,
+                        y
+                    ],
+                    self.output_dir.joinpath(f"{id}.png")
+                )
+                predict_audios.append(Audio(id, y))
+        return predict_audios
