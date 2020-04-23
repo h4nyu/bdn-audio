@@ -114,4 +114,4 @@ def train() -> None:
     kf = KFold(n_split=5)
     for i, (train, valid) in enumerate(kf(raw_audios)):
         t = Trainer(train, valid, output_dir=Path(f"/store/model-{i}"))
-        t.train(1000)
+        t.train(4000)

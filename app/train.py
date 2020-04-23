@@ -36,7 +36,7 @@ class Trainer:
         coefficient = 3
         flops_multiplier = alpha * (beta ** 2) * (gamma ** 2)
         depth = 3 * alpha ** coefficient
-        resolution = int(32 * beta ** coefficient)
+        resolution = int(16 * beta ** coefficient)
         width = int(64 * gamma ** coefficient)
         logger.info(f"{alpha=}, {beta=}, {gamma=}, {flops_multiplier=}, {coefficient=}")
         logger.info(f"{resolution=}, {width=}, {depth=} ")
@@ -75,7 +75,7 @@ class Trainer:
         for img, label in tqdm(self.data_loaders["train"]):
             img, label = img.to(self.device), label.to(self.device)
             pred = self.model(img)
-            loss = self.objective(pred, label - img)
+            loss = self.objective(pred, label)
             loss.backward()
             self.optimizer.step()
             self.optimizer.zero_grad()
@@ -94,9 +94,9 @@ class Trainer:
             img, label = img.to(self.device), label.to(self.device)
             with torch.no_grad():
                 pred = self.model(img)
-                loss = self.objective(pred, (label - img))
+                loss = self.objective(pred, label)
                 epoch_loss += loss.item()
-                score += nn.MSELoss()(img + pred, label).item()
+                score += loss.item()
 
         plot_spectrograms(
             [
@@ -104,7 +104,6 @@ class Trainer:
                 (label - img)[0].cpu().numpy(),
                 img[0].cpu().numpy(),
                 label[0].cpu().numpy(),
-                (pred + img)[0].cpu().numpy(),
             ],
             self.output_dir.joinpath(f"eval-{self.epoch}.png"),
         )
@@ -120,14 +119,14 @@ class Trainer:
             self.best_score = data["best_score"]
 
         self.model.load_state_dict(
-            torch.load(self.output_dir.joinpath(f"model-{self.epoch}.pth"))
+            torch.load(self.output_dir.joinpath(f"model.pth"))
         )
 
     def save_checkpoint(self,) -> None:
         with open(self.checkpoint_path, "w") as f:
             json.dump({"epoch": self.epoch, "best_score": self.best_score,}, f)
         torch.save(
-            self.model.state_dict(), self.output_dir.joinpath(f"model-{self.epoch}.pth")
+            self.model.state_dict(), self.output_dir.joinpath(f"model.pth")
         )
 
     def train(self, max_epochs: int) -> None:

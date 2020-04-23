@@ -97,12 +97,11 @@ class Noise:
         self.p = p
 
     def __call__(self, spectrogram: t.Any) -> t.Any:
-        fill_value = np.min(spectrogram)
+        fill_value = np.random.choice(np.sort(spectrogram,axis=None))
         mask = np.random.choice(
-            [False, True], size=spectrogram.shape, p=[self.p, (1 - self.p)]
+            [True, False], size=spectrogram.shape, p=[self.p, (1 - self.p)]
         )
-        inverted_mask = np.logical_not(mask)
-        masked = spectrogram * mask + inverted_mask * fill_value
+        masked = spectrogram + mask * fill_value
         return masked
 
 
@@ -121,8 +120,15 @@ class Flip1d:
     def __init__(self, p: float) -> None:
         self.p = p
 
-    def __call__(self, x: t.Any) -> t.Any:
-        return x - self._avg
+    def __call__(self, x: t.Any, y: t.Any) -> t.Tuple[t.Any, t.Any]:
+        is_enable = np.random.choice(
+            [False, True], size=(1,), p=[self.p, (1 - self.p)]
+        )[0]
+        if is_enable:
+            return x[:, ::-1].copy(), y[:, ::-1].copy()
+        else:
+            return x, y
+
 
 
 class Scaler:
