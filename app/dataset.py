@@ -26,8 +26,9 @@ class Dataset(_Dataset):
     def transform(self, audio: Audio) -> t.Tuple[t.Any, t.Any]:
         raw = audio.spectrogram.copy()
         noised = Noise(p=0.02)(audio.spectrogram.copy())
-        noised, raw = RandomCrop1d(self.length)(noised, raw)
-        noised, raw = Flip1d(p=0.5)(noised, raw)
+        if self.mode == "train":
+            noised, raw = RandomCrop1d(self.length)(noised, raw)
+            noised, raw = Flip1d(p=0.5)(noised, raw)
         return noised, raw
 
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, t.Any]:

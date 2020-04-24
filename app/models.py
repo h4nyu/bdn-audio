@@ -141,7 +141,7 @@ class ConvBR1d(nn.Module):
             dilation=dilation,
             stride=stride,
             groups=groups,
-            bias=False,
+            bias=True,
         )
         self.bn = nn.BatchNorm1d(out_channels)
         self.is_activation = is_activation
@@ -155,41 +155,6 @@ class ConvBR1d(nn.Module):
             x = self.relu(x)
         return x
 
-
-class ConvBR2d(nn.Module):
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        kernel_size: int = 1,
-        padding: int = 0,
-        dilation: int = 1,
-        stride: int = 1,
-        groups: int = 1,
-        is_activation: bool = True,
-    ) -> None:
-        super().__init__()
-        self.conv = nn.Conv2d(
-            in_channels,
-            out_channels,
-            kernel_size=kernel_size,
-            padding=padding,
-            dilation=dilation,
-            stride=stride,
-            groups=groups,
-            bias=False,
-        )
-        self.bn = nn.BatchNorm2d(out_channels)
-        self.is_activation = is_activation
-
-        if is_activation:
-            self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, x):  # type: ignore
-        x = self.bn(self.conv(x))
-        if self.is_activation:
-            x = self.relu(x)
-        return x
 
 
 class Down(nn.Module):
@@ -254,7 +219,7 @@ class Up(nn.Module):
 class UNet(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        channels = np.array([128, 256, 512, 1024, 2048])
+        channels = np.array([128, 256, 512, 1024, 2048]) * 2
 
         self.in_channels = in_channels
         self.inc = nn.Sequential(
@@ -280,16 +245,18 @@ class UNet(nn.Module):
                 padding=1,
             ),
         )
-        self.down1 = Down(channels[0], channels[1], pool="avg")
-        self.down2 = Down(channels[1], channels[2], pool="avg")
-        self.down3 = Down(channels[2], channels[3], pool="avg")
+        self.down1 = Down(channels[0], channels[1], pool="max")
+        self.down2 = Down(channels[1], channels[2], pool="max")
+        self.down3 = Down(channels[2], channels[3], pool="max")
         self.down4 = Down(channels[3], channels[4], pool="avg")
         self.up1 = Up(channels[-1], channels[-2])
         self.up2 = Up(channels[-2], channels[-3])
         self.up3 = Up(channels[-3], channels[-4])
         self.up4 = Up(channels[-4], channels[-5])
         self.outc = nn.Sequential(
-            nn.Conv1d(channels[-5], out_channels, kernel_size=1, stride=1, padding=0)
+            nn.Conv1d(channels[-5], out_channels, kernel_size=1, stride=1, padding=0),
+            nn.ReLU(inplace=True),
+            nn.Conv1d(out_channels, out_channels, kernel_size=1, stride=1, padding=0)
         )
 
     def forward(self, x):  # type: ignore

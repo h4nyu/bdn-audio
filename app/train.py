@@ -37,7 +37,7 @@ class Trainer:
         coefficient = 3
         flops_multiplier = alpha * (beta ** 2) * (gamma ** 2)
         depth = 3 * alpha ** coefficient
-        resolution = int(16 * beta ** coefficient)
+        resolution = int(32 * beta ** coefficient)
         width = int(64 * gamma ** coefficient)
         logger.info(f"{alpha=}, {beta=}, {gamma=}, {flops_multiplier=}, {coefficient=}")
         logger.info(f"{resolution=}, {width=}, {depth=} ")
@@ -49,7 +49,7 @@ class Trainer:
             "train": DataLoader(
                 Dataset(train_data, length=resolution, mode="train",),
                 shuffle=True,
-                batch_size=32,
+                batch_size=8,
             ),
             "test": DataLoader(
                 Dataset(test_data, length=resolution, mode="test",),
@@ -97,17 +97,21 @@ class Trainer:
                 pred = self.model(img)
                 loss = self.objective(pred, label)
                 epoch_loss += loss.item()
+
+                x = img[0].cpu().numpy()
+                pred = pred[0].cpu().numpy()
+                y = label[0].cpu().numpy()
                 score += mean_squared_error(
-                    librosa.db_to_power(pred[0].cpu().numpy()),
-                    librosa.db_to_power(label[0].cpu().numpy()),
+                    librosa.db_to_power(pred),
+                    librosa.db_to_power(y),
                 )
 
         plot_spectrograms(
             [
-                pred[0].cpu().numpy(),
-                (label - img)[0].cpu().numpy(),
-                img[0].cpu().numpy(),
-                label[0].cpu().numpy(),
+                x,
+                pred,
+                y,
+                y - pred,
             ],
             self.output_dir.joinpath(f"eval-{self.epoch}.png"),
         )
