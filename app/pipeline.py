@@ -19,83 +19,33 @@ wav_dir = Path("/store/wav")
 wav_dir.mkdir(exist_ok=True)
 
 
-def summary(in_path:str, out_path:str) -> t.Any:
+def eda(in_path:str, out_path:str) -> t.Any:
     executor = futures.ProcessPoolExecutor()
     audios = load_audios(in_path)
-    out_path = Path(out_path)
-    out_path.mkdir(exist_ok=True)
+    out_dir = Path(out_path)
+    out_dir.mkdir(exist_ok=True)
 
     futures.wait(
         [
             executor.submit(
                 show_detail,
                 audio.spectrogram,
-                out_path.joinpath(f"{audio.id}.png"),
+                out_dir.joinpath(f"{audio.id}.png"),
             )
             for audio in audios
         ]
     )
-
-def eda() -> t.Any:
-    executor = futures.ProcessPoolExecutor()
-    noised_audios = load_audios(NOISED_TGT_DIR)
-
     futures.wait(
         [
             executor.submit(
-                show_detail,
-                audio.spectrogram,
-                plot_dir.joinpath(f"noised-specgram-{audio.id}.png"),
-            )
-            for audio in noised_audios
-        ]
-    )
-
-    futures.wait(
-        [
-            executor.submit(
-                show_detail,
-                audio.spectrogram,
-                plot_dir.joinpath(f"noised-specgram-{audio.id}.png"),
-            )
-            for audio in noised_audios
-        ]
-    )
-    futures.wait(
-        [
-            executor.submit(
-                cache(f"noised-wav-{audio.id}", save_wav),
+                cache(f"{out_dir}-wav-{audio.id}", save_wav),
                 audio,
-                wav_dir.joinpath(f"noised-{audio.id}.wav"),
+                out_dir.joinpath(f"{audio.id}.wav"),
             )
-            for audio in noised_audios
+            for audio in audios
         ]
     )
-
-    raw_audios = load_audios(RAW_TGT_DIR)
-    futures.wait(
-        [
-            executor.submit(
-                show_detail,
-                audio.spectrogram,
-                plot_dir.joinpath(f"raw-specgram-{audio.id}.png"),
-            )
-            for audio in raw_audios
-        ]
-    )
-    futures.wait(
-        [
-            executor.submit(
-                cache(f"raw-wav-{audio.id}", save_wav),
-                audio,
-                wav_dir.joinpath(f"raw-{audio.id}.wav"),
-            )
-            for audio in raw_audios
-        ]
-    )
-
-    all_audios = noised_audios + raw_audios
-    dataset_summary = summary(all_audios)
+    dataset_summary = summary(audios)
     logger.info(f"{dataset_summary=}")
 
 

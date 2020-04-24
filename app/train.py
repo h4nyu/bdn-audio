@@ -11,7 +11,6 @@ from torch import optim
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Subset
-from mlboard_client import Writer
 from sklearn.metrics import mean_squared_error
 from concurrent import futures
 from datetime import datetime
