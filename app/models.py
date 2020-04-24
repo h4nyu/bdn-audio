@@ -254,9 +254,8 @@ class UNet(nn.Module):
         self.up3 = Up(channels[-3], channels[-4])
         self.up4 = Up(channels[-4], channels[-5])
         self.outc = nn.Sequential(
-            nn.Conv1d(channels[-5], out_channels, kernel_size=1, stride=1, padding=0),
-            nn.ReLU(inplace=True),
-            nn.Conv1d(out_channels, out_channels, kernel_size=1, stride=1, padding=0)
+            ConvBR1d(channels[-5], out_channels, kernel_size=1, stride=1, padding=0),
+            ConvBR1d(out_channels, out_channels, kernel_size=1, stride=1, padding=0)
         )
 
     def forward(self, x):  # type: ignore

@@ -36,7 +36,7 @@ class Trainer:
         coefficient = 3
         flops_multiplier = alpha * (beta ** 2) * (gamma ** 2)
         depth = 3 * alpha ** coefficient
-        resolution = int(32 * beta ** coefficient)
+        resolution = int(16 * beta ** coefficient)
         width = int(64 * gamma ** coefficient)
         logger.info(f"{alpha=}, {beta=}, {gamma=}, {flops_multiplier=}, {coefficient=}")
         logger.info(f"{resolution=}, {width=}, {depth=} ")
@@ -48,7 +48,7 @@ class Trainer:
             "train": DataLoader(
                 Dataset(train_data, length=resolution, mode="train",),
                 shuffle=True,
-                batch_size=4,
+                batch_size=32,
             ),
             "test": DataLoader(
                 Dataset(test_data, length=resolution, mode="test",),
@@ -93,12 +93,12 @@ class Trainer:
         for img, label in tqdm(self.data_loaders["test"]):
             img, label = img.to(self.device), label.to(self.device)
             with torch.no_grad():
-                pred = self.model(img)
-                loss = self.objective(pred, label - img)
+                diff = self.model(img)
+                loss = self.objective(diff, label - img)
                 epoch_loss += loss.item()
 
                 x = img[0].cpu().numpy()
-                pred = pred[0].cpu().numpy() + x
+                pred = diff[0].cpu().numpy() + x
                 y = label[0].cpu().numpy()
                 score += mean_squared_error(
                     pred,
@@ -111,11 +111,11 @@ class Trainer:
                 pred,
                 y,
                 y - pred,
+                diff[0].cpu().numpy(),
             ],
             self.output_dir.joinpath(f"eval-{self.epoch}.png"),
         )
         epoch_loss = epoch_loss / len(self.data_loaders["test"])
-        score = score / len(self.data_loaders["test"])
         logger.info(f"{epoch=} test {epoch_loss=} {score=}")
         return epoch_loss, score
 
@@ -173,7 +173,7 @@ class Predict:
                 y = self.model(x)
 
                 x = x[0].cpu().numpy()
-                y = y[0].cpu().numpy()
+                y = y[0].cpu().numpy() + x
                 plot_spectrograms(
                     [
                         x,
