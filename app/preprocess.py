@@ -28,7 +28,7 @@ def load_audios(dirctory: str) -> Audios:
         if matched is not None:
             id = matched.group(0)
             spectrogram = np.load(p)
-            audios.append(Audio(id, librosa.power_to_db(spectrogram)))
+            audios.append(Audio(id, spectrogram))
     return audios
 
 
@@ -39,7 +39,7 @@ def save_wav(spectrogram: t.Any, path: t.Union[str, Path]) -> None:
 
 def summary(audios: Audios) -> t.Dict[str, t.Any]:
     shapes = [x.spectrogram.shape for x in audios]
-    spectrograms = [x.spectrogram for x in audios]
+    spectrograms = [librosa.power_to_db(x.spectrogram) for x in audios]
     length_range = (
         min([x[1] for x in shapes]),
         max([x[1] for x in shapes]),
@@ -60,6 +60,7 @@ def plot_spectrograms(
 ) -> None:
     fig, axs = plt.subplots(len(spectrograms), sharex=True)
     for sp, ax in zip(spectrograms, axs):
+        sp = librosa.power_to_db(sp)
         im = ax.imshow(sp, interpolation="nearest", cmap="gray")
         fig.colorbar(im, ax=ax)
         ax.set_aspect("auto")
@@ -97,11 +98,15 @@ class Noise:
         self.p = p
 
     def __call__(self, spectrogram: t.Any) -> t.Any:
-        fill_value = np.random.choice(np.sort(spectrogram,axis=None))
+        all_values = spectrogram.flatten()
+        fill_value = np.random.choice(
+            np.sort(all_values)[:len(all_values)//2], size=1
+        )[0]
         mask = np.random.choice(
-            [True, False], size=spectrogram.shape, p=[self.p, (1 - self.p)]
+            [False, True], size=spectrogram.shape, p=[self.p, (1 - self.p)]
         )
-        masked = spectrogram + mask * fill_value
+        inverted_mask = np.logical_not(mask)
+        masked = spectrogram * mask + inverted_mask * fill_value
         return masked
 
 

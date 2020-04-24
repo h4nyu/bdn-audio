@@ -48,7 +48,7 @@ class Trainer:
             "train": DataLoader(
                 Dataset(train_data, length=resolution, mode="train",),
                 shuffle=True,
-                batch_size=8,
+                batch_size=4,
             ),
             "test": DataLoader(
                 Dataset(test_data, length=resolution, mode="test",),
@@ -75,7 +75,7 @@ class Trainer:
         for img, label in tqdm(self.data_loaders["train"]):
             img, label = img.to(self.device), label.to(self.device)
             pred = self.model(img)
-            loss = self.objective(pred, label)
+            loss = self.objective(pred, label - img)
             loss.backward()
             self.optimizer.step()
             self.optimizer.zero_grad()
@@ -94,15 +94,15 @@ class Trainer:
             img, label = img.to(self.device), label.to(self.device)
             with torch.no_grad():
                 pred = self.model(img)
-                loss = self.objective(pred, label)
+                loss = self.objective(pred, label - img)
                 epoch_loss += loss.item()
 
                 x = img[0].cpu().numpy()
-                pred = pred[0].cpu().numpy()
+                pred = pred[0].cpu().numpy() + x
                 y = label[0].cpu().numpy()
                 score += mean_squared_error(
-                    librosa.db_to_power(pred),
-                    librosa.db_to_power(y),
+                    pred,
+                    y,
                 )
 
         plot_spectrograms(

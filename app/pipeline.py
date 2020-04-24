@@ -88,13 +88,12 @@ def train() -> None:
 
 def predict() -> None:
     noised_audios = load_audios(NOISED_TGT_DIR)
-    clean_audios = Predict("/store/model-1/model.pth",noised_audios, "/store/predict-0")()
+    clean_audios = Predict("/store/model-0/model.pth",noised_audios, "/store/predict-0")()
     power_spectrograms = [
-        librosa.db_to_power(x.spectrogram)
+        x.spectrogram
         for x in clean_audios
     ]
     submit_dir = Path("/store/predict-0/submit")
     submit_dir.mkdir(exist_ok=True)
     for sp, audio in zip(power_spectrograms, clean_audios):
-        sp = np.zeros_like(sp)
         np.save(submit_dir.joinpath(f"tgt_{audio.id}.npy"), sp)
