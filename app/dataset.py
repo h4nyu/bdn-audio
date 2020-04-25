@@ -2,7 +2,8 @@ import numpy as np
 import typing as t
 from torch.utils.data import Dataset as _Dataset
 from .entities import Audios, Audio
-from .preprocess import Noise, RandomCrop1d, Scaler, Flip1d
+from .preprocess import Noise, RandomCrop1d, Scaler, Flip1d, RandomScale
+from .config import VALUE_RANGE
 from sklearn.preprocessing import MinMaxScaler
 import librosa
 
@@ -29,6 +30,7 @@ class Dataset(_Dataset):
         if self.mode == "train":
             noised, raw = RandomCrop1d(self.length)(noised, raw)
             noised, raw = Flip1d(p=0.5)(noised, raw)
+            noised, raw = RandomScale(p=1, value_range=(0.95, 1.05))(noised, raw)
         return noised, raw
 
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, t.Any]:

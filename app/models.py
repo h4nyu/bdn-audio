@@ -115,7 +115,7 @@ class SENextBottleneck1d(nn.Module):
                 x = F.avg_pool1d(x, self.stride, self.stride)  # avg
             x = self.shortcut(x)
         x = x + s
-        x = F.relu(x, inplace=True)
+        x = torch.sigmoid(x)
 
         return x
 
@@ -147,12 +147,12 @@ class ConvBR1d(nn.Module):
         self.is_activation = is_activation
 
         if is_activation:
-            self.relu = nn.ReLU(inplace=True)
+            self.activation = nn.Sigmoid()
 
     def forward(self, x):  # type: ignore
         x = self.bn(self.conv(x))
         if self.is_activation:
-            x = self.relu(x)
+            x = self.activation(x)
         return x
 
 
@@ -219,10 +219,17 @@ class Up(nn.Module):
 class UNet(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        channels = np.array([128, 256, 512, 1024, 2048]) * 2
+        channels = np.array([128, 256, 512, 1024, 2048])
 
         self.in_channels = in_channels
         self.inc = nn.Sequential(
+            nn.Conv1d(
+                in_channels=in_channels, 
+                out_channels=channels[0],
+                kernel_size=1, 
+                stride=1, 
+                padding=0
+            ),
             ConvBR1d(
                 in_channels=in_channels,
                 out_channels=channels[0],
@@ -254,8 +261,7 @@ class UNet(nn.Module):
         self.up3 = Up(channels[-3], channels[-4])
         self.up4 = Up(channels[-4], channels[-5])
         self.outc = nn.Sequential(
-            ConvBR1d(channels[-5], out_channels, kernel_size=1, stride=1, padding=0),
-            ConvBR1d(out_channels, out_channels, kernel_size=1, stride=1, padding=0)
+            nn.Conv1d(channels[-5], out_channels, kernel_size=1, stride=1, padding=0),
         )
 
     def forward(self, x):  # type: ignore

@@ -4,6 +4,7 @@ import json
 import os
 from .entities import Audios, Audio
 from .dataset import Dataset, PredictDataset
+from .config import VALUE_RANGE
 import os
 import torch
 from pathlib import Path
@@ -36,7 +37,7 @@ class Trainer:
         coefficient = 3
         flops_multiplier = alpha * (beta ** 2) * (gamma ** 2)
         depth = 3 * alpha ** coefficient
-        resolution = int(16 * beta ** coefficient)
+        resolution = int(32 * beta ** coefficient)
         width = int(64 * gamma ** coefficient)
         logger.info(f"{alpha=}, {beta=}, {gamma=}, {flops_multiplier=}, {coefficient=}")
         logger.info(f"{resolution=}, {width=}, {depth=} ")
@@ -48,7 +49,7 @@ class Trainer:
             "train": DataLoader(
                 Dataset(train_data, length=resolution, mode="train",),
                 shuffle=True,
-                batch_size=32,
+                batch_size=64,
             ),
             "test": DataLoader(
                 Dataset(test_data, length=resolution, mode="test",),
@@ -72,33 +73,38 @@ class Trainer:
         self.model.train()
         epoch_loss = 0.0
         score = 0.0
-        for img, label in tqdm(self.data_loaders["train"]):
-            img, label = img.to(self.device), label.to(self.device)
-            pred = self.model(img)
-            loss = self.objective(pred, label - img)
-            loss.backward()
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-            epoch_loss += loss.item()
+        count = 0
+        for _ in tqdm(range(10)):
+            for img, label in self.data_loaders["train"]:
+                count = count + 1
+                img, label = img.to(self.device), label.to(self.device)
+                pred = self.model(img)
+                loss = self.objective(pred, label)
+                loss.backward()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+                epoch_loss += loss.item()
 
-        epoch_loss = epoch_loss / len(self.data_loaders["train"])
+        epoch_loss = epoch_loss / count
         epoch = self.epoch
-        logger.info(f"{epoch=} train {epoch_loss=}")
+        logger.info(f"{epoch=} train {epoch_loss=}, {count=}")
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
         self.model.eval()
         epoch = self.epoch
         epoch_loss = 0.0
         score = 0.0
+        count = 0
         for img, label in tqdm(self.data_loaders["test"]):
             img, label = img.to(self.device), label.to(self.device)
+            count += 1
             with torch.no_grad():
-                diff = self.model(img)
-                loss = self.objective(diff, label - img)
+                pred = self.model(img)
+                loss = self.objective(pred, label)
                 epoch_loss += loss.item()
 
                 x = img[0].cpu().numpy()
-                pred = diff[0].cpu().numpy() + x
+                pred = pred[0].cpu().numpy()
                 y = label[0].cpu().numpy()
                 score += mean_squared_error(
                     pred,
@@ -111,11 +117,11 @@ class Trainer:
                 pred,
                 y,
                 y - pred,
-                diff[0].cpu().numpy(),
             ],
             self.output_dir.joinpath(f"eval-{self.epoch}.png"),
         )
-        epoch_loss = epoch_loss / len(self.data_loaders["test"])
+        epoch_loss = epoch_loss / count
+        score = score / count
         logger.info(f"{epoch=} test {epoch_loss=} {score=}")
         return epoch_loss, score
 
@@ -140,11 +146,10 @@ class Trainer:
         for epoch in range(self.epoch, max_epochs + 1):
             self.epoch = epoch
             self.train_one_epoch()
-            if epoch % 10 == 0:
-                _, score = self.eval_one_epoch()
-                if score < self.best_score:
-                    self.save_checkpoint()
-                    self.best_score = score
+            _, score = self.eval_one_epoch()
+            if score < self.best_score:
+                self.save_checkpoint()
+                self.best_score = score
 
 class Predict:
     def __init__(self, model_path:str, audios: Audios, output_dir:str) -> None:
@@ -171,9 +176,8 @@ class Predict:
                 id = ids[0]
                 x = x.to(DEVICE)
                 y = self.model(x)
-
                 x = x[0].cpu().numpy()
-                y = y[0].cpu().numpy() + x
+                y = y[0].cpu().numpy()
                 plot_spectrograms(
                     [
                         x,

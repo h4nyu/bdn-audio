@@ -39,7 +39,7 @@ def save_wav(spectrogram: t.Any, path: t.Union[str, Path]) -> None:
 
 def summary(audios: Audios) -> t.Dict[str, t.Any]:
     shapes = [x.spectrogram.shape for x in audios]
-    spectrograms = [librosa.power_to_db(x.spectrogram) for x in audios]
+    spectrograms = [x.spectrogram for x in audios]
     length_range = (
         min([x[1] for x in shapes]),
         max([x[1] for x in shapes]),
@@ -134,6 +134,20 @@ class Flip1d:
         else:
             return x, y
 
+class RandomScale:
+    def __init__(self, p: float, value_range:t.Tuple[float, float]=(0, 0)) -> None:
+        self.p = p
+        self.value_range = value_range
+
+    def __call__(self, x: t.Any, y: t.Any) -> t.Tuple[t.Any, t.Any]:
+        is_enable = np.random.choice(
+            [False, True], size=(1,), p=[self.p, (1 - self.p)]
+        )[0]
+        if is_enable:
+            scale = np.random.uniform(self.value_range)
+            return x * scale, y * scale
+        else:
+            return x, y
 
 
 class Scaler:
