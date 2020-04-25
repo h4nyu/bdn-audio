@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
 from concurrent import futures
 from datetime import datetime
-from .models import UNet
+from .models import ResNext as NNModel
 from logging import getLogger
 import librosa
 from tqdm import tqdm
@@ -41,7 +41,7 @@ class Trainer:
         width = int(64 * gamma ** coefficient)
         logger.info(f"{alpha=}, {beta=}, {gamma=}, {flops_multiplier=}, {coefficient=}")
         logger.info(f"{resolution=}, {width=}, {depth=} ")
-        self.model = UNet(in_channels=128, out_channels=128).double().to(DEVICE)
+        self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
         self.optimizer = optim.AdamW(self.model.parameters())  # type: ignore
         self.objective = nn.MSELoss()
         self.epoch = 1
@@ -74,7 +74,7 @@ class Trainer:
         epoch_loss = 0.0
         score = 0.0
         count = 0
-        for _ in tqdm(range(10)):
+        for _ in tqdm(range(20)):
             for img, label in self.data_loaders["train"]:
                 count = count + 1
                 img, label = img.to(self.device), label.to(self.device)

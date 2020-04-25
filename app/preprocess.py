@@ -94,19 +94,20 @@ class KFold:
 
 
 class Noise:
-    def __init__(self, p: float = 0.2) -> None:
+    def __init__(self, p: float = 0.2, high: float = 0.05, low: float = 0) -> None:
+        self.high = high
+        self.low = low
         self.p = p
 
     def __call__(self, spectrogram: t.Any) -> t.Any:
         all_values = spectrogram.flatten()
-        fill_value = np.random.choice(
-            np.sort(all_values)[: len(all_values) // 2], size=1
-        )[0]
+        scale = np.random.uniform(low=self.low, high=self.high)
         mask = np.random.choice(
             [False, True], size=spectrogram.shape, p=[self.p, (1 - self.p)]
         )
-        inverted_mask = np.logical_not(mask)
-        masked = spectrogram * mask + inverted_mask * fill_value
+        scale_mask = np.logical_not(mask) * scale
+        mask = mask + scale_mask
+        masked = spectrogram * mask
         return masked
 
 
@@ -136,16 +137,17 @@ class Flip1d:
 
 
 class RandomScale:
-    def __init__(self, p: float, value_range: t.Tuple[float, float] = (0, 0)) -> None:
+    def __init__(self, p: float, high: float = 1.05, low: float = 0.0) -> None:
         self.p = p
-        self.value_range = value_range
+        self.high = high
+        self.low = low
 
     def __call__(self, x: t.Any, y: t.Any) -> t.Tuple[t.Any, t.Any]:
         is_enable = np.random.choice(
             [False, True], size=(1,), p=[self.p, (1 - self.p)]
         )[0]
         if is_enable:
-            scale = np.random.uniform(self.value_range)
+            scale = np.random.uniform(high=self.high, low=self.low)
             return x * scale, y * scale
         else:
             return x, y

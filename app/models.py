@@ -262,6 +262,14 @@ class UNet(nn.Module):
         self.up3 = Up(channels[-3], channels[-4])
         self.up4 = Up(channels[-4], channels[-5])
         self.outc = nn.Sequential(
+            nn.Conv1d(
+                in_channels=channels[-5],
+                out_channels=channels[-5],
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            ),
+            nn.Dropout(p=0.3),
             nn.Conv1d(channels[-5], out_channels, kernel_size=1, stride=1, padding=0),
         )
 
@@ -275,5 +283,39 @@ class UNet(nn.Module):
         x = self.up2(x, x3)
         x = self.up3(x, x2)
         x = self.up4(x, x1)
+        x = self.outc(x)
+        return x
+
+
+class ResNext(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int) -> None:
+        super().__init__()
+        channels = np.array([128, 256, 512, 1024, 2048])
+        self.inc = nn.Sequential(
+            nn.Conv1d(
+                in_channels=in_channels,
+                out_channels=channels[0],
+                kernel_size=1,
+                stride=1,
+                padding=0,
+            ),
+        )
+        self.bottlenecks = nn.Sequential(
+            SENextBottleneck1d(
+                in_channels=channels[0],
+                out_channels=channels[0],
+                stride=1,
+                is_shortcut=True,
+                pool="avg",
+            ),
+        )
+
+        self.outc = nn.Sequential(
+            nn.Conv1d(channels[0], out_channels, kernel_size=1, stride=1, padding=0),
+        )
+
+    def forward(self, x):  # type: ignore
+        x = self.inc(x)  # [B, 64, L]
+        x = self.bottlenecks(x)
         x = self.outc(x)
         return x
