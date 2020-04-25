@@ -290,7 +290,7 @@ class UNet(nn.Module):
 class ResNext(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        channels = np.array([128, 256, 512, 1024, 2048])
+        channels = np.array([256, 512, 1024, 2048])
         self.inc = nn.Sequential(
             nn.Conv1d(
                 in_channels=in_channels,
