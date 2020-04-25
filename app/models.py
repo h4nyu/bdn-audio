@@ -1,4 +1,5 @@
 import numpy as np
+
 import typing as t
 import torch
 import torch.nn as nn
@@ -54,7 +55,7 @@ class CSE1d(nn.Module):
             nn.Conv1d(in_channels, in_channels // reduction, 1),
             nn.ReLU(inplace=True),
             nn.Conv1d(in_channels // reduction, in_channels, 1),
-            nn.Sigmoid(),
+            nn.ReLU(inplace=True),
         )
 
     def forward(self, x):  # type: ignore
@@ -97,6 +98,7 @@ class SENextBottleneck1d(nn.Module):
             self.shortcut = ConvBR1d(
                 in_channels, out_channels, 1, 0, 1, is_activation=False
             )
+        self.activation = nn.ReLU(inplace=True)
         if stride > 1:
             if pool == "max":
                 self.pool = nn.MaxPool1d(stride, stride)
@@ -115,7 +117,7 @@ class SENextBottleneck1d(nn.Module):
                 x = F.avg_pool1d(x, self.stride, self.stride)  # avg
             x = self.shortcut(x)
         x = x + s
-        x = torch.sigmoid(x)
+        x = self.activation(x)
 
         return x
 
@@ -147,7 +149,7 @@ class ConvBR1d(nn.Module):
         self.is_activation = is_activation
 
         if is_activation:
-            self.activation = nn.Sigmoid()
+            self.activation = nn.ReLU(inplace=True)
 
     def forward(self, x):  # type: ignore
         x = self.bn(self.conv(x))
