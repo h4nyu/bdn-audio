@@ -100,7 +100,7 @@ class Noise:
     def __call__(self, spectrogram: t.Any) -> t.Any:
         all_values = spectrogram.flatten()
         fill_value = np.random.choice(
-            np.sort(all_values)[:len(all_values)//2], size=1
+            np.sort(all_values)[: len(all_values) // 2], size=1
         )[0]
         mask = np.random.choice(
             [False, True], size=spectrogram.shape, p=[self.p, (1 - self.p)]
@@ -134,8 +134,9 @@ class Flip1d:
         else:
             return x, y
 
+
 class RandomScale:
-    def __init__(self, p: float, value_range:t.Tuple[float, float]=(0, 0)) -> None:
+    def __init__(self, p: float, value_range: t.Tuple[float, float] = (0, 0)) -> None:
         self.p = p
         self.value_range = value_range
 

@@ -106,19 +106,10 @@ class Trainer:
                 x = img[0].cpu().numpy()
                 pred = pred[0].cpu().numpy()
                 y = label[0].cpu().numpy()
-                score += mean_squared_error(
-                    pred,
-                    y,
-                )
+                score += mean_squared_error(pred, y,)
 
         plot_spectrograms(
-            [
-                x,
-                pred,
-                y,
-                y - pred,
-            ],
-            self.output_dir.joinpath(f"eval-{self.epoch}.png"),
+            [x, pred, y, y - pred,], self.output_dir.joinpath(f"eval-{self.epoch}.png"),
         )
         epoch_loss = epoch_loss / count
         score = score / count
@@ -131,16 +122,12 @@ class Trainer:
             self.epoch = data["epoch"]
             self.best_score = data["best_score"]
 
-        self.model.load_state_dict(
-            torch.load(self.output_dir.joinpath(f"model.pth"))
-        )
+        self.model.load_state_dict(torch.load(self.output_dir.joinpath(f"model.pth")))
 
     def save_checkpoint(self,) -> None:
         with open(self.checkpoint_path, "w") as f:
             json.dump({"epoch": self.epoch, "best_score": self.best_score,}, f)
-        torch.save(
-            self.model.state_dict(), self.output_dir.joinpath(f"model.pth")
-        )
+        torch.save(self.model.state_dict(), self.output_dir.joinpath(f"model.pth"))
 
     def train(self, max_epochs: int) -> None:
         for epoch in range(self.epoch, max_epochs + 1):
@@ -151,8 +138,9 @@ class Trainer:
                 self.save_checkpoint()
                 self.best_score = score
 
+
 class Predict:
-    def __init__(self, model_path:str, audios: Audios, output_dir:str) -> None:
+    def __init__(self, model_path: str, audios: Audios, output_dir: str) -> None:
         self.model = UNet(in_channels=128, out_channels=128).double().to(DEVICE)
         self.model_path = model_path
         self.output_dir = Path(output_dir)
@@ -160,17 +148,13 @@ class Predict:
         self.audios = audios
         self.length = 16
         self.data_loader = DataLoader(
-            PredictDataset(audios),
-            shuffle=False,
-            batch_size=1,
+            PredictDataset(audios), shuffle=False, batch_size=1,
         )
 
     def __call__(self,) -> Audios:
-        self.model.load_state_dict(
-            torch.load(self.model_path)
-        )
+        self.model.load_state_dict(torch.load(self.model_path))
         self.model.eval()
-        predict_audios:Audios = []
+        predict_audios: Audios = []
         with torch.no_grad():
             for x, ids in self.data_loader:
                 id = ids[0]
@@ -178,12 +162,6 @@ class Predict:
                 y = self.model(x)
                 x = x[0].cpu().numpy()
                 y = y[0].cpu().numpy()
-                plot_spectrograms(
-                    [
-                        x,
-                        y
-                    ],
-                    self.output_dir.joinpath(f"{id}.png")
-                )
+                plot_spectrograms([x, y], self.output_dir.joinpath(f"{id}.png"))
                 predict_audios.append(Audio(id, y))
         return predict_audios

@@ -12,10 +12,7 @@ Mode = t.Literal["Test", "Train"]
 
 class Dataset(_Dataset):
     def __init__(
-        self,
-        audios: Audios,
-        length: int,
-        mode: t.Literal["train", "test"] = "train",
+        self, audios: Audios, length: int, mode: t.Literal["train", "test"] = "train",
     ) -> None:
         self.audios = audios
         self.mode = mode
@@ -38,11 +35,9 @@ class Dataset(_Dataset):
         noised, raw = self.transform(row)
         return (noised, raw)
 
+
 class PredictDataset(_Dataset):
-    def __init__(
-        self,
-        audios: Audios,
-    ) -> None:
+    def __init__(self, audios: Audios,) -> None:
         self.audios = audios
 
     def __len__(self) -> int:

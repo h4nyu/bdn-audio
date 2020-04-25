@@ -19,7 +19,7 @@ wav_dir = Path("/store/wav")
 wav_dir.mkdir(exist_ok=True)
 
 
-def eda(in_path:str, out_path:str) -> t.Any:
+def eda(in_path: str, out_path: str) -> t.Any:
     executor = futures.ProcessPoolExecutor()
     audios = load_audios(in_path)
     out_dir = Path(out_path)
@@ -28,9 +28,7 @@ def eda(in_path:str, out_path:str) -> t.Any:
     futures.wait(
         [
             executor.submit(
-                show_detail,
-                audio.spectrogram,
-                out_dir.joinpath(f"{audio.id}.png"),
+                show_detail, audio.spectrogram, out_dir.joinpath(f"{audio.id}.png"),
             )
             for audio in audios
         ]
@@ -88,11 +86,10 @@ def train() -> None:
 
 def predict() -> None:
     noised_audios = load_audios(NOISED_TGT_DIR)
-    clean_audios = Predict("/store/model-0/model.pth",noised_audios, "/store/predict-0")()
-    power_spectrograms = [
-        x.spectrogram
-        for x in clean_audios
-    ]
+    clean_audios = Predict(
+        "/store/model-0/model.pth", noised_audios, "/store/predict-0"
+    )()
+    power_spectrograms = [x.spectrogram for x in clean_audios]
     submit_dir = Path("/store/predict-0/submit")
     submit_dir.mkdir(exist_ok=True)
     for sp, audio in zip(power_spectrograms, clean_audios):

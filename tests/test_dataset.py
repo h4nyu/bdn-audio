@@ -12,10 +12,11 @@ def test_dataset() -> None:
     dataset = Dataset(raw_audios, length)
     for i in range(4):
         x, y = dataset[0]
-        plot_spectrograms([x, y, x-y], f"/store/plot/test-{i}.png")
+        plot_spectrograms([x, y, x - y], f"/store/plot/test-{i}.png")
         x, y = librosa.db_to_power(x), librosa.db_to_power(y)
         save_wav(x, f"/store/wav/test-x-{i}.wav")
         save_wav(y, f"/store/wav/test-y-{i}.wav")
+
 
 def test_predict_dataset() -> None:
     length = 32

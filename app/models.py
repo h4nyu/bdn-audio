@@ -158,7 +158,6 @@ class ConvBR1d(nn.Module):
         return x
 
 
-
 class Down(nn.Module):
     """Downscaling with maxpool then double conv"""
 
@@ -226,11 +225,11 @@ class UNet(nn.Module):
         self.in_channels = in_channels
         self.inc = nn.Sequential(
             nn.Conv1d(
-                in_channels=in_channels, 
+                in_channels=in_channels,
                 out_channels=channels[0],
-                kernel_size=1, 
-                stride=1, 
-                padding=0
+                kernel_size=1,
+                stride=1,
+                padding=0,
             ),
             ConvBR1d(
                 in_channels=in_channels,
