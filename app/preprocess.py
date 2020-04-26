@@ -60,7 +60,7 @@ def plot_spectrograms(
 ) -> None:
     fig, axs = plt.subplots(len(spectrograms), sharex=True)
     for sp, ax in zip(spectrograms, axs):
-        sp = librosa.power_to_db(sp)
+        sp = np.log(sp)
         im = ax.imshow(sp, interpolation="nearest", cmap="gray")
         fig.colorbar(im, ax=ax)
         ax.set_aspect("auto")
@@ -100,14 +100,12 @@ class Noise:
         self.p = p
 
     def __call__(self, spectrogram: t.Any) -> t.Any:
-        all_values = spectrogram.flatten()
-        scale = np.random.uniform(low=self.low, high=self.high)
+        value = np.mean(spectrogram)
         mask = np.random.choice(
             [False, True], size=spectrogram.shape, p=[self.p, (1 - self.p)]
         )
-        scale_mask = np.logical_not(mask) * scale
-        mask = mask + scale_mask
-        masked = spectrogram * mask
+        fill_values = np.logical_not(mask) * np.random.rand(*spectrogram.shape) * self.high
+        masked = spectrogram * (mask + fill_values)
         return masked
 
 
@@ -120,6 +118,18 @@ class RandomCrop1d:
         high = shape[1] - self.length
         start = np.random.randint(low=0, high=high)
         return x[:, start : start + self.length], y[:, start : start + self.length]
+
+class RandomCrop2d:
+    def __init__(self, length: int) -> None:
+        self.length = length
+
+    def __call__(self, x: t.Any, y: t.Any) -> t.Tuple[t.Any, t.Any]:
+        shape = x.shape
+        high = shape[1] - self.length
+        width = shape[0] - self.length
+        start_h = np.random.randint(low=0, high=high)
+        start_w = np.random.randint(low=0, high=width)
+        return x[start_w: start_w + self.length, start_h : start_h + self.length], y[start_w: start_w + self.length:, start_h : start_h + self.length]
 
 
 class Flip1d:

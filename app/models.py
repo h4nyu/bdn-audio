@@ -7,6 +7,15 @@ import torch.nn.functional as F
 from collections import OrderedDict
 
 
+class LogCoshLoss(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, y_t, y_prime_t):  # type: ignore
+        ey_t = y_t - y_prime_t
+        return torch.mean(torch.log(torch.cosh(ey_t + 1e-12)))
+
+
 class FocalLoss(nn.Module):
     def __init__(
         self, alpha: float = 1, gamma: float = 2, reduce: bool = True,
@@ -27,20 +36,82 @@ class FocalLoss(nn.Module):
             return F_loss
 
 
-class SSE1d(nn.Module):
+class ConvBR2d(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int = 1,
+        padding: int = 0,
+        dilation: int = 1,
+        stride: int = 1,
+        groups: int = 1,
+        is_activation: bool = True,
+    ) -> None:
+        super().__init__()
+        self.conv = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            padding=padding,
+            dilation=dilation,
+            stride=stride,
+            groups=groups,
+            bias=False,
+        )
+        self.bn = nn.BatchNorm2d(out_channels)
+        self.is_activation = is_activation
+
+        if is_activation:
+            self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):  # type: ignore
+        x = self.bn(self.conv(x))
+        if self.is_activation:
+            x = self.relu(x)
+        return x
+
+
+class SSE2d(nn.Module):
     def __init__(self, in_channels: int) -> None:
         super().__init__()
-        self.se = nn.Sequential(nn.Conv1d(in_channels, 1, 1), nn.Sigmoid())
+        self.se = nn.Sequential(nn.Conv2d(in_channels, 1, 1), nn.Sigmoid())
 
     def forward(self, x):  # type: ignore
         x = x * self.se(x)
         return x
 
 
-class SSEModule(nn.Module):
+class CSE2d(nn.Module):
+    def __init__(self, in_channels: int, reduction: int) -> None:
+        super().__init__()
+        self.se = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(in_channels, in_channels // reduction, 1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(in_channels // reduction, in_channels, 1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x):  # type: ignore
+        x = x * self.se(x)
+        return x
+
+
+class SCSE2d(nn.Module):
+    def __init__(self, in_channels: int, reduction: int = 16) -> None:
+        super().__init__()
+        self.c_se = CSE2d(in_channels, reduction)
+        self.s_se = SSE2d(in_channels)
+
+    def forward(self, x):  # type: ignore
+        return self.c_se(x) + self.s_se(x)
+
+
+class SSE1d(nn.Module):
     def __init__(self, in_channels: int) -> None:
         super().__init__()
-        self.se = nn.Sequential(nn.Conv2d(in_channels, 1, 1), nn.Sigmoid())
+        self.se = nn.Sequential(nn.Conv1d(in_channels, 1, 1), nn.Sigmoid())
 
     def forward(self, x):  # type: ignore
         x = x * self.se(x)
@@ -73,6 +144,54 @@ class SCSE1d(nn.Module):
         return self.c_se(x) + self.s_se(x)
 
 
+class SENextBottleneck2d(nn.Module):
+    pool: t.Union[None, nn.MaxPool2d, nn.AvgPool2d]
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        stride: int = 1,
+        groups: int = 32,
+        reduction: int = 16,
+        pool: t.Literal["max", "avg"] = "max",
+        is_shortcut: bool=True,
+    ) -> None:
+        super().__init__()
+        mid_channels = groups * (out_channels // 2 // groups)
+        self.conv1 = ConvBR2d(in_channels, mid_channels, 1, 0, 1,)
+        self.conv2 = ConvBR2d(mid_channels, mid_channels, 3, 1, 1, groups=groups)
+        self.conv3 = ConvBR2d(mid_channels, out_channels, 1, 0, 1, is_activation=False)
+        self.se = CSE2d(out_channels, reduction)
+        self.stride = stride
+        self.is_shortcut = is_shortcut
+        if self.is_shortcut:
+            self.shortcut = ConvBR2d(
+                in_channels, out_channels, 1, 0, 1, is_activation=False
+            )
+        if stride > 1:
+            if pool == "max":
+                self.pool = nn.MaxPool2d(stride, stride)
+            elif pool == "avg":
+                self.pool = nn.AvgPool2d(stride, stride)
+
+    def forward(self, x):  # type: ignore
+        s = self.conv1(x)
+        s = self.conv2(s)
+        if self.stride > 1:
+            s = self.pool(s)
+        s = self.conv3(s)
+        s = self.se(s)
+        #
+        if self.is_shortcut:
+            if self.stride > 1:
+                x = F.avg_pool2d(x, self.stride, self.stride)  # avg
+            x = self.shortcut(x)
+        x = x + s
+        x = F.relu(x, inplace=True)
+        return x
+
+
 class SENextBottleneck1d(nn.Module):
     pool: t.Union[None, nn.MaxPool1d, nn.AvgPool1d]
 
@@ -98,7 +217,7 @@ class SENextBottleneck1d(nn.Module):
             self.shortcut = ConvBR1d(
                 in_channels, out_channels, 1, 0, 1, is_activation=False
             )
-        self.activation = nn.ReLU(inplace=True)
+        self.activation = nn.LeakyReLU(inplace=True)
         if stride > 1:
             if pool == "max":
                 self.pool = nn.MaxPool1d(stride, stride)
@@ -158,7 +277,7 @@ class ConvBR1d(nn.Module):
         return x
 
 
-class Down(nn.Module):
+class Down1d(nn.Module):
     """Downscaling with maxpool then double conv"""
 
     def __init__(
@@ -185,39 +304,120 @@ class Down(nn.Module):
     def forward(self, x):  # type: ignore
         return self.block(x)
 
+class Down2d(nn.Module):
+    """Downscaling with maxpool then double conv"""
 
-class Up(nn.Module):
+    def __init__(
+        self, in_channels: int, out_channels: int, pool: t.Literal["max", "avg"] = "max"
+    ) -> None:
+        super().__init__()
+
+        self.block = nn.Sequential(
+            SENextBottleneck2d(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                stride=2,
+                is_shortcut=True,
+                pool=pool,
+            ),
+            SENextBottleneck2d(
+                in_channels=out_channels,
+                out_channels=out_channels,
+                stride=1,
+                is_shortcut=False,
+            ),
+        )
+
+    def forward(self, x):  # type: ignore
+        return self.block(x)
+
+
+class Up1d(nn.Module):
     """Upscaling then double conv"""
 
     up: t.Union[nn.Upsample, nn.ConvTranspose1d]
 
     def __init__(
-        self, in_channels: int, out_channels: int, bilinear: bool = False,
+        self,
+        in_channels: int,
+        out_channels: int,
+        bilinear: bool = False,
+        marge: bool = True,
     ) -> None:
         super().__init__()
         # if bilinear, use the normal convolutions to reduce the number of channels
+        self.marge = marge
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode="linear", align_corners=True)
         else:
             self.up = nn.ConvTranspose1d(
-                in_channels, out_channels, kernel_size=2, stride=2
+                in_channels, in_channels, kernel_size=2, stride=2
             )
-        self.conv1 = ConvBR1d(
-            out_channels + out_channels, out_channels, kernel_size=3, padding=1
-        )
+
+        if self.marge:
+            self.conv1 = ConvBR1d(
+                in_channels+out_channels, out_channels, kernel_size=3, padding=1
+            )
+        else:
+            self.conv1 = ConvBR1d(in_channels, out_channels, kernel_size=3, padding=1)
         self.conv2 = ConvBR1d(out_channels, out_channels, kernel_size=3, padding=1)
 
     def forward(self, x1, x2):  # type: ignore
         x1 = self.up(x1)
         diff = torch.tensor([x2.size()[2] - x1.size()[2]])
         x1 = F.pad(x1, [diff // 2, diff - diff // 2])
-        x = torch.cat([x2, x1], dim=1)
+        if self.marge:
+            x = torch.cat([x2, x1], dim=1)
+        else:
+            x = x1
+        x = self.conv1(x)
+        x = self.conv2(x)
+        return x
+
+class Up2d(nn.Module):
+    """Upscaling then double conv"""
+
+    up: t.Union[nn.Upsample, nn.ConvTranspose1d]
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        bilinear: bool = False,
+        marge: bool = True,
+    ) -> None:
+        super().__init__()
+        # if bilinear, use the normal convolutions to reduce the number of channels
+        self.marge = marge
+        if bilinear:
+            self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
+        else:
+            self.up = nn.ConvTranspose2d(
+                in_channels, in_channels, kernel_size=2, stride=2
+            )
+        if self.marge:
+            self.conv1 = ConvBR2d(
+                in_channels + out_channels, in_channels, kernel_size=3, padding=1
+            )
+        else:
+            self.conv1 = ConvBR2d(in_channels, in_channels, kernel_size=3, padding=1)
+        self.conv2 = ConvBR2d(in_channels, out_channels, kernel_size=3, padding=1)
+
+    def forward(self, x1, x2):  # type: ignore
+        x1 = self.up(x1)
+        diff_h = torch.tensor([x2.size()[2] - x1.size()[2]])
+        diff_w = torch.tensor([x2.size()[3] - x1.size()[3]])
+        x1 = F.pad(x1, (diff_h - diff_h // 2 , diff_w - diff_w // 2))
+        if self.marge:
+            x = torch.cat([x2, x1], dim=1)
+        else:
+            x = x1
         x = self.conv1(x)
         x = self.conv2(x)
         return x
 
 
-class UNet(nn.Module):
+class UNet1d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
         channels = np.array([128, 256, 512, 1024, 2048])
@@ -253,69 +453,141 @@ class UNet(nn.Module):
                 padding=1,
             ),
         )
-        self.down1 = Down(channels[0], channels[1], pool="max")
-        self.down2 = Down(channels[1], channels[2], pool="max")
-        self.down3 = Down(channels[2], channels[3], pool="max")
-        self.down4 = Down(channels[3], channels[4], pool="avg")
-        self.up1 = Up(channels[-1], channels[-2])
-        self.up2 = Up(channels[-2], channels[-3])
-        self.up3 = Up(channels[-3], channels[-4])
-        self.up4 = Up(channels[-4], channels[-5])
+        self.down1 = Down1d(channels[0], channels[1], pool="max")
+        self.down2 = Down1d(channels[1], channels[2], pool="max")
+        self.down3 = Down1d(channels[2], channels[3], pool="max")
+        self.down4 = Down1d(channels[3], channels[4], pool="avg")
+        self.up1 = Up1d(channels[-1], channels[-2], bilinear=True)
+        self.up2 = Up1d(channels[-2], channels[-3], bilinear=True)
+        self.up3 = Up1d(channels[-3], channels[-4], bilinear=True)
+        self.up4 = Up1d(channels[-4], channels[-5], bilinear=True)
         self.outc = nn.Sequential(
-            nn.Conv1d(
-                in_channels=channels[-5],
-                out_channels=channels[-5],
-                kernel_size=3,
-                stride=1,
-                padding=1,
-            ),
-            nn.Dropout(p=0.3),
-            nn.Conv1d(channels[-5], out_channels, kernel_size=1, stride=1, padding=0),
+            ConvBR1d(in_channels=channels[-5], out_channels=out_channels, kernel_size=3, stride=1, padding=1),
+            nn.Conv1d(in_channels=out_channels, out_channels=out_channels, kernel_size=1, stride=1, padding=0),
         )
 
     def forward(self, x):  # type: ignore
-        x1 = self.inc(x)  # [B, 64, L]
-        x2 = self.down1(x1)  # [B, 128, L//2]
-        x3 = self.down2(x2)  # [B, 256, L//4]
-        x4 = self.down3(x3)  # [B, 512, L//8]
-        x5 = self.down4(x4)  # [B, 1024, L//8]
-        x = self.up1(x5, x4)
-        x = self.up2(x, x3)
-        x = self.up3(x, x2)
-        x = self.up4(x, x1)
-        x = self.outc(x)
+        n1 = self.inc(x)  # [B, 64, L]
+        n2 = self.down1(n1)  # [B, 128, L//2]
+        n3 = self.down2(n2)  # [B, 256, L//4]
+        n4 = self.down3(n3)  # [B, 512, L//8]
+        n5 = self.down4(n4)  # [B, 1024, L//8]
+        n = self.up1(n5, n4)
+        n = self.up2(n, n3)
+        n = self.up3(n, n2)
+        n = self.up4(n, n1)
+        n = self.outc(n)
+        x = torch.abs(n)
+        return x
+
+class UNet2d(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int) -> None:
+        super().__init__()
+        channels = np.array([64, 128, 256, 512]) * 2
+
+        self.in_channels = in_channels
+        self.inc = nn.Sequential(
+            nn.Conv2d(
+                in_channels=1,
+                out_channels=channels[0],
+                kernel_size=5,
+                stride=1,
+                padding=2,
+            ),
+        )
+        self.down1 = Down2d(channels[0], channels[1], pool="max")
+        self.down2 = Down2d(channels[1], channels[2], pool="max")
+        self.down3 = Down2d(channels[2], channels[3], pool="avg")
+        self.up1 = Up2d(channels[-1], channels[-2], bilinear=True)
+        self.up2 = Up2d(channels[-2], channels[-3], bilinear=True)
+        self.up3 = Up2d(channels[-3], channels[-4], bilinear=True)
+        self.outc = nn.Sequential(
+            nn.Conv2d(channels[-4], 1, kernel_size=3, stride=1, padding=1),
+        )
+
+    def forward(self, x):  # type: ignore
+        input_shape = x.shape
+        x = x.view(x.shape[0], 1, *x.shape[1:])
+        x = torch.log(x)
+        n1 = self.inc(x)  # [B, 64, L]
+        n2 = self.down1(n1)  # [B, 128, L//2]
+        n3 = self.down2(n2)  # [B, 256, L//4]
+        n4 = self.down3(n3)  # [B, 256, L//4]
+        n = self.up1(n4, n3)
+        n = self.up2(n, n2)
+        n = self.up3(n, n1)
+        n = self.outc(n)
+        x = torch.exp(n)
+        x = x.view(*input_shape) * 400
         return x
 
 
-class ResNext(nn.Module):
+class ResNext1d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        channels = np.array([256, 512, 1024, 2048])
+        channels = np.array([1024, 2048])
         self.inc = nn.Sequential(
-            nn.Conv1d(
-                in_channels=in_channels,
-                out_channels=channels[0],
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            ),
+            nn.Conv1d(in_channels, channels[0], kernel_size=5, stride=1, padding=2),
         )
-        self.bottlenecks = nn.Sequential(
-            SENextBottleneck1d(
-                in_channels=channels[0],
-                out_channels=channels[0],
-                stride=1,
-                is_shortcut=True,
-                pool="avg",
-            ),
-        )
-
+        #  self.bottlenecks = nn.Sequential(
+        #      SENextBottleneck1d(
+        #          in_channels=channels[0],
+        #          out_channels=channels[1],
+        #          stride=2,
+        #          is_shortcut=True,
+        #          pool="max",
+        #      ),
+        #      #  SENextBottleneck1d(
+        #      #      in_channels=channels[1],
+        #      #      out_channels=channels[1],
+        #      #      stride=2,
+        #      #      is_shortcut=False,
+        #      #      pool="max",
+        #      #  ),
+        #  )
         self.outc = nn.Sequential(
-            nn.Conv1d(channels[0], out_channels, kernel_size=1, stride=1, padding=0),
+            ConvBR1d(in_channels=channels[1], out_channels=channels[1], kernel_size=5, stride=1, padding=2),
+            ConvBR1d(in_channels=channels[1], out_channels=out_channels, kernel_size=3, stride=1, padding=1),
+            nn.Conv1d(in_channels=out_channels, out_channels=out_channels, kernel_size=1, stride=1, padding=0),
         )
 
     def forward(self, x):  # type: ignore
-        x = self.inc(x)  # [B, 64, L]
-        x = self.bottlenecks(x)
-        x = self.outc(x)
+        x = x ** (1/2)
+        n = self.inc(x)  # [B, 64, L]
+        n = self.bottlenecks(n)
+        n = self.outc(n)
+        x = (x + n) ** 2
+        return x
+
+class ResNext2d(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int) -> None:
+        super().__init__()
+        self.inc = nn.Sequential(
+            ConvBR2d(1, 128, kernel_size=5, stride=1, padding=2),
+            ConvBR2d(128, 128, kernel_size=3, stride=1, padding=1),
+            nn.AvgPool2d(3, stride=1, padding=1),
+        )
+        self.bottlenecks = nn.Sequential(
+            SENextBottleneck2d(
+                in_channels=128,
+                out_channels=128,
+                stride=1,
+                is_shortcut=True,
+                pool="max",
+            ),
+        )
+        self.outc = nn.Sequential(
+            nn.Conv2d(128, 1, kernel_size=1, stride=1, padding=0),
+        )
+
+    def forward(self, x):  # type: ignore
+        input_shape = x.shape
+        x = x.view(x.shape[0], 1, *x.shape[1:])
+        #  x = torch.log(x)
+        n = self.inc(x)  # [B, 64, L]
+        #  n = self.bottlenecks(n)
+        n = self.outc(n)
+        x = n + x
+        x = x.view(*input_shape)
+        #  x = torch.exp(x)
         return x

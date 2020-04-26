@@ -78,7 +78,7 @@ def dummy_aug(p: float = 0.2) -> t.Any:
 
 def train() -> None:
     raw_audios = load_audios(RAW_TGT_DIR)
-    kf = KFold(n_split=5)
+    kf = KFold(n_split=10)
     for i, (train, valid) in enumerate(kf(raw_audios)):
         t = Trainer(train, valid, output_dir=Path(f"/store/model-{i}"))
         t.train(4000)

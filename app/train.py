@@ -15,7 +15,9 @@ from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
 from concurrent import futures
 from datetime import datetime
-from .models import ResNext as NNModel
+from .models import UNet2d as NNModel
+#  from .models import LogCoshLoss as Loss
+from torch.nn import MSELoss as Loss
 from logging import getLogger
 import librosa
 from tqdm import tqdm
@@ -37,19 +39,20 @@ class Trainer:
         coefficient = 3
         flops_multiplier = alpha * (beta ** 2) * (gamma ** 2)
         depth = 3 * alpha ** coefficient
-        resolution = int(32 * beta ** coefficient)
+        resolution = int(64 * beta ** coefficient)
         width = int(64 * gamma ** coefficient)
         logger.info(f"{alpha=}, {beta=}, {gamma=}, {flops_multiplier=}, {coefficient=}")
         logger.info(f"{resolution=}, {width=}, {depth=} ")
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
         self.optimizer = optim.AdamW(self.model.parameters())  # type: ignore
-        self.objective = nn.MSELoss()
+        self.objective = Loss()
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
                 Dataset(train_data, length=resolution, mode="train",),
                 shuffle=True,
-                batch_size=64,
+                batch_size=8,
+                drop_last=True,
             ),
             "test": DataLoader(
                 Dataset(test_data, length=resolution, mode="test",),
@@ -74,26 +77,40 @@ class Trainer:
         epoch_loss = 0.0
         score = 0.0
         count = 0
-        for _ in tqdm(range(20)):
-            for img, label in self.data_loaders["train"]:
-                count = count + 1
-                img, label = img.to(self.device), label.to(self.device)
-                pred = self.model(img)
-                loss = self.objective(pred, label)
-                loss.backward()
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-                epoch_loss += loss.item()
+        base_score = 0.0
+        for img, label in tqdm(self.data_loaders["train"]):
+            count = count + 1
+            img, label = img.to(self.device), label.to(self.device)
+            pred = self.model(img)
+            loss = self.objective(pred, label)
+            loss.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            epoch_loss += loss.item()
+
+        x = img[0].detach().cpu().numpy()
+        pred = pred[0].detach().cpu().numpy()
+        y = label[0].detach().cpu().numpy()
+        score += mean_squared_error(pred, y,)
+        base_score += mean_squared_error(x, y,)
+
+        plot_spectrograms(
+            [x, pred, y], self.output_dir.joinpath(f"train.png"),
+        )
 
         epoch_loss = epoch_loss / count
         epoch = self.epoch
-        logger.info(f"{epoch=} train {epoch_loss=}, {count=}")
+        score = score / count
+        base_score = base_score / count
+        score_diff = base_score - score
+        logger.info(f"{epoch=} train {epoch_loss=} {base_score=} {score=} {score_diff=}")
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
         self.model.eval()
         epoch = self.epoch
         epoch_loss = 0.0
         score = 0.0
+        base_score = 0.0
         count = 0
         for img, label in tqdm(self.data_loaders["test"]):
             img, label = img.to(self.device), label.to(self.device)
@@ -107,13 +124,16 @@ class Trainer:
                 pred = pred[0].cpu().numpy()
                 y = label[0].cpu().numpy()
                 score += mean_squared_error(pred, y,)
+                base_score += mean_squared_error(x, y,)
 
         plot_spectrograms(
-            [x, pred, y, y - pred,], self.output_dir.joinpath(f"eval-{self.epoch}.png"),
+            [x, pred, y], self.output_dir.joinpath(f"eval.png"),
         )
         epoch_loss = epoch_loss / count
         score = score / count
-        logger.info(f"{epoch=} test {epoch_loss=} {score=}")
+        base_score = base_score / count
+        score_diff = base_score - score
+        logger.info(f"{epoch=} test {epoch_loss=} {base_score=} {score=} {score_diff=}")
         return epoch_loss, score
 
     def load_checkpoint(self,) -> None:
@@ -141,7 +161,7 @@ class Trainer:
 
 class Predict:
     def __init__(self, model_path: str, audios: Audios, output_dir: str) -> None:
-        self.model = UNet(in_channels=128, out_channels=128).double().to(DEVICE)
+        self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
         self.model_path = model_path
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(exist_ok=True)
