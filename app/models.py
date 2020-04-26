@@ -562,10 +562,10 @@ class ResNext1d(nn.Module):
 class ResNext2d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
+        channels = np.array([128, 256, 512, 1024, 2048])
         self.inc = nn.Sequential(
-            ConvBR2d(1, 128, kernel_size=5, stride=1, padding=2),
-            ConvBR2d(128, 128, kernel_size=3, stride=1, padding=1),
-            nn.AvgPool2d(3, stride=1, padding=1),
+            ConvBR2d(1, channels[0], kernel_size=5, stride=1, padding=2),
+            ConvBR2d(channels[0], channels[0], kernel_size=3, stride=1, padding=1),
         )
         self.bottlenecks = nn.Sequential(
             SENextBottleneck2d(
@@ -577,17 +577,19 @@ class ResNext2d(nn.Module):
             ),
         )
         self.outc = nn.Sequential(
-            nn.Conv2d(128, 1, kernel_size=1, stride=1, padding=0),
+            ConvBR2d(in_channels=channels[0], out_channels=channels[0], kernel_size=5, stride=1, padding=2),
+            ConvBR2d(in_channels=channels[0], out_channels=channels[0], kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=out_channels, out_channels=1, kernel_size=1, stride=1, padding=0),
         )
 
     def forward(self, x):  # type: ignore
         input_shape = x.shape
-        x = x.view(x.shape[0], 1, *x.shape[1:])
-        #  x = torch.log(x)
+        x = x.view(x.shape[0], 1, *x.shape[1:]) / 400
+        x = torch.log(x)
         n = self.inc(x)  # [B, 64, L]
-        #  n = self.bottlenecks(n)
+        n = self.bottlenecks(n)
         n = self.outc(n)
-        x = n + x
+        x = n
         x = x.view(*input_shape)
-        #  x = torch.exp(x)
+        x = torch.exp(x) * 400
         return x

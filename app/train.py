@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
 from concurrent import futures
 from datetime import datetime
-from .models import UNet2d as NNModel
+from .models import ResNext2d as NNModel
 #  from .models import LogCoshLoss as Loss
 from torch.nn import MSELoss as Loss
 from logging import getLogger
