@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
 from concurrent import futures
 from datetime import datetime
-from .models import ResNext2d as NNModel
+from .models import UNet1d as NNModel
 #  from .models import LogCoshLoss as Loss
 from torch.nn import MSELoss as Loss
 from logging import getLogger
@@ -33,29 +33,20 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        alpha = 1
-        beta = 1
-        gamma = 1
-        coefficient = 3
-        flops_multiplier = alpha * (beta ** 2) * (gamma ** 2)
-        depth = 3 * alpha ** coefficient
-        resolution = int(64 * beta ** coefficient)
-        width = int(64 * gamma ** coefficient)
-        logger.info(f"{alpha=}, {beta=}, {gamma=}, {flops_multiplier=}, {coefficient=}")
-        logger.info(f"{resolution=}, {width=}, {depth=} ")
+        resolution = 16
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters())  # type: ignore
+        self.optimizer = optim.Adam(self.model.parameters())  # type: ignore
         self.objective = Loss()
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                Dataset(train_data, length=resolution, mode="train",),
+                Dataset(train_data, resolution=resolution, mode="train",),
                 shuffle=True,
                 batch_size=8,
                 drop_last=True,
             ),
             "test": DataLoader(
-                Dataset(test_data, length=resolution, mode="test",),
+                Dataset(test_data, resolution=resolution, mode="test",),
                 shuffle=True,
                 batch_size=1,
             ),
@@ -78,15 +69,16 @@ class Trainer:
         score = 0.0
         count = 0
         base_score = 0.0
-        for img, label in tqdm(self.data_loaders["train"]):
-            count = count + 1
-            img, label = img.to(self.device), label.to(self.device)
-            pred = self.model(img)
-            loss = self.objective(pred, label)
-            loss.backward()
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-            epoch_loss += loss.item()
+        for i in tqdm(range(10)):
+            for img, label in self.data_loaders["train"]:
+                count = count + 1
+                img, label = img.to(self.device), label.to(self.device)
+                pred = self.model(img)
+                loss = self.objective(pred, label)
+                loss.backward()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+                epoch_loss += loss.item()
 
         x = img[0].detach().cpu().numpy()
         pred = pred[0].detach().cpu().numpy()

@@ -63,12 +63,12 @@ class ConvBR2d(nn.Module):
         self.is_activation = is_activation
 
         if is_activation:
-            self.relu = nn.ReLU(inplace=True)
+            self.activation = nn.ELU(inplace=True)
 
     def forward(self, x):  # type: ignore
         x = self.bn(self.conv(x))
         if self.is_activation:
-            x = self.relu(x)
+            x = self.activation(x)
         return x
 
 
@@ -377,7 +377,7 @@ class Up1d(nn.Module):
 class Up2d(nn.Module):
     """Upscaling then double conv"""
 
-    up: t.Union[nn.Upsample, nn.ConvTranspose1d]
+    up: t.Union[nn.Upsample, nn.ConvTranspose2d]
 
     def __init__(
         self,
@@ -464,6 +464,7 @@ class UNet1d(nn.Module):
         self.outc = nn.Sequential(
             ConvBR1d(in_channels=channels[-5], out_channels=out_channels, kernel_size=3, stride=1, padding=1),
             nn.Conv1d(in_channels=out_channels, out_channels=out_channels, kernel_size=1, stride=1, padding=0),
+            nn.Sigmoid(),
         )
 
     def forward(self, x):  # type: ignore
@@ -477,7 +478,7 @@ class UNet1d(nn.Module):
         n = self.up3(n, n2)
         n = self.up4(n, n1)
         n = self.outc(n)
-        x = torch.abs(n)
+        x = n
         return x
 
 class UNet2d(nn.Module):
@@ -529,22 +530,6 @@ class ResNext1d(nn.Module):
         self.inc = nn.Sequential(
             nn.Conv1d(in_channels, channels[0], kernel_size=5, stride=1, padding=2),
         )
-        #  self.bottlenecks = nn.Sequential(
-        #      SENextBottleneck1d(
-        #          in_channels=channels[0],
-        #          out_channels=channels[1],
-        #          stride=2,
-        #          is_shortcut=True,
-        #          pool="max",
-        #      ),
-        #      #  SENextBottleneck1d(
-        #      #      in_channels=channels[1],
-        #      #      out_channels=channels[1],
-        #      #      stride=2,
-        #      #      is_shortcut=False,
-        #      #      pool="max",
-        #      #  ),
-        #  )
         self.outc = nn.Sequential(
             ConvBR1d(in_channels=channels[1], out_channels=channels[1], kernel_size=5, stride=1, padding=2),
             ConvBR1d(in_channels=channels[1], out_channels=out_channels, kernel_size=3, stride=1, padding=1),
@@ -585,6 +570,7 @@ class ResNext2d(nn.Module):
         )
         self.outc = nn.Sequential(
             nn.Conv2d(in_channels=channels[2], out_channels=1, kernel_size=1, stride=1, padding=0),
+            nn.Sigmoid()
         )
 
     def forward(self, x):  # type: ignore
@@ -595,4 +581,4 @@ class ResNext2d(nn.Module):
         n = self.outc(n)
         x = n + x
         x = x.view(*input_shape)
-        return torch.abs(x)
+        return x

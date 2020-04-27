@@ -12,11 +12,11 @@ Mode = t.Literal["Test", "Train"]
 
 class Dataset(_Dataset):
     def __init__(
-        self, audios: Audios, length: int, mode: t.Literal["train", "test"] = "train",
+        self, audios: Audios, resolution: int, mode: t.Literal["train", "test"] = "train",
     ) -> None:
         self.audios = audios
         self.mode = mode
-        self.length = length
+        self.resolution = resolution
 
     def __len__(self) -> int:
         return len(self.audios)
@@ -24,8 +24,10 @@ class Dataset(_Dataset):
     def transform(self, audio: Audio) -> t.Tuple[t.Any, t.Any]:
         raw = audio.spectrogram.copy()
         noised = Noise(p=0.05, high=0.1, low=0.01)(audio.spectrogram.copy())
+        _max = np.max(raw)
+        raw, noised = raw / _max, noised / _max
         if self.mode == "train":
-            noised, raw = RandomCrop2d(self.length)(noised, raw)
+            noised, raw = RandomCrop1d(self.resolution)(noised, raw)
             noised, raw = Flip1d(p=0.5)(noised, raw)
             noised, raw = RandomScale(p=1, low=0.98, high=1.02)(noised, raw)
         return noised, raw

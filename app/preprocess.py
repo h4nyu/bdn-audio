@@ -126,16 +126,21 @@ class RandomCrop1d:
         return x[:, start : start + self.length], y[:, start : start + self.length]
 
 class RandomCrop2d:
-    def __init__(self, length: int) -> None:
-        self.length = length
+    def __init__(self, h: int, w:int) -> None:
+        self.h = h
+        self.w = w
 
     def __call__(self, x: t.Any, y: t.Any) -> t.Tuple[t.Any, t.Any]:
         shape = x.shape
-        high = shape[1] - self.length
-        width = shape[0] - self.length
-        start_h = np.random.randint(low=0, high=high)
-        start_w = np.random.randint(low=0, high=width)
-        return x[start_w: start_w + self.length, start_h : start_h + self.length], y[start_w: start_w + self.length:, start_h : start_h + self.length]
+        high = shape[1] - self.h
+        width = shape[0] - self.w
+        start_h = 0
+        if high > 0:
+            start_h = np.random.randint(low=0, high=high)
+        start_w = 0
+        if width > 0:
+            start_w = np.random.randint(low=0, high=width)
+        return x[start_w: start_w + self.w, start_h : start_h + self.h], y[start_w: start_w + self.w:, start_h : start_h + self.h]
 
 
 class Flip1d:
