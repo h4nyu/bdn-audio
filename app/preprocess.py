@@ -58,10 +58,16 @@ def summary(audios: Audios) -> t.Dict[str, t.Any]:
 def plot_spectrograms(
     spectrograms: t.Sequence[t.Any], path: t.Union[str, Path]
 ) -> None:
+    log_spectgrams = [
+        np.log(x)
+        for x in spectrograms
+    ]
+    all_values = np.concatenate(log_spectgrams)
+    _max = np.max(all_values)
+    _min = np.min(all_values)
     fig, axs = plt.subplots(len(spectrograms), sharex=True)
-    for sp, ax in zip(spectrograms, axs):
-        sp = np.log(sp)
-        im = ax.imshow(sp, interpolation="nearest", cmap="gray")
+    for sp, ax in zip(log_spectgrams, axs):
+        im = ax.imshow(sp, interpolation="nearest", cmap="jet", vmax=_max, vmin=_min)
         fig.colorbar(im, ax=ax)
         ax.set_aspect("auto")
     fig.tight_layout()
