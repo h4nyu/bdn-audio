@@ -569,27 +569,30 @@ class ResNext2d(nn.Module):
         )
         self.bottlenecks = nn.Sequential(
             SENextBottleneck2d(
-                in_channels=128,
-                out_channels=128,
+                in_channels=channels[0],
+                out_channels=channels[1],
+                stride=1,
+                is_shortcut=True,
+                pool="max",
+            ),
+            SENextBottleneck2d(
+                in_channels=channels[1],
+                out_channels=channels[2],
                 stride=1,
                 is_shortcut=True,
                 pool="max",
             ),
         )
         self.outc = nn.Sequential(
-            ConvBR2d(in_channels=channels[0], out_channels=channels[0], kernel_size=5, stride=1, padding=2),
-            ConvBR2d(in_channels=channels[0], out_channels=channels[0], kernel_size=3, stride=1, padding=1),
-            nn.Conv2d(in_channels=out_channels, out_channels=1, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(in_channels=channels[2], out_channels=1, kernel_size=1, stride=1, padding=0),
         )
 
     def forward(self, x):  # type: ignore
         input_shape = x.shape
-        x = x.view(x.shape[0], 1, *x.shape[1:]) / 400
-        x = torch.log(x)
+        x = x.view(x.shape[0], 1, *x.shape[1:])
         n = self.inc(x)  # [B, 64, L]
         n = self.bottlenecks(n)
         n = self.outc(n)
-        x = n
+        x = n + x
         x = x.view(*input_shape)
-        x = torch.exp(x) * 400
-        return x
+        return torch.abs(x)
