@@ -15,9 +15,12 @@ from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
 from concurrent import futures
 from datetime import datetime
+
+#  from .models import UNet1d as NNModel
 from .models import UNet1d as NNModel
+
 #  from .models import LogCoshLoss as Loss
-from torch.nn import MSELoss as Loss
+from torch.nn import L1Loss as Loss
 from logging import getLogger
 import librosa
 from tqdm import tqdm
@@ -33,7 +36,7 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = 16
+        resolution = 64
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
         self.optimizer = optim.Adam(self.model.parameters())  # type: ignore
         self.objective = Loss()
@@ -42,7 +45,7 @@ class Trainer:
             "train": DataLoader(
                 Dataset(train_data, resolution=resolution, mode="train",),
                 shuffle=True,
-                batch_size=8,
+                batch_size=32,
                 drop_last=True,
             ),
             "test": DataLoader(
@@ -70,7 +73,7 @@ class Trainer:
         count = 0
         base_score = 0.0
         for i in tqdm(range(10)):
-            for img, label in self.data_loaders["train"]:
+            for img, label, _ in self.data_loaders["train"]:
                 count = count + 1
                 img, label = img.to(self.device), label.to(self.device)
                 pred = self.model(img)
@@ -95,7 +98,9 @@ class Trainer:
         score = score / count
         base_score = base_score / count
         score_diff = base_score - score
-        logger.info(f"{epoch=} train {epoch_loss=} {base_score=} {score=} {score_diff=}")
+        logger.info(
+            f"{epoch=} train {epoch_loss=} {base_score=} {score=} {score_diff=}"
+        )
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
         self.model.eval()
@@ -104,7 +109,7 @@ class Trainer:
         score = 0.0
         base_score = 0.0
         count = 0
-        for img, label in tqdm(self.data_loaders["test"]):
+        for img, label, _ in tqdm(self.data_loaders["test"]):
             img, label = img.to(self.device), label.to(self.device)
             count += 1
             with torch.no_grad():
@@ -168,12 +173,13 @@ class Predict:
         self.model.eval()
         predict_audios: Audios = []
         with torch.no_grad():
-            for x, ids in self.data_loader:
+            for x, ids, scales in self.data_loader:
                 id = ids[0]
+                scale = scales[0].item()
                 x = x.to(DEVICE)
                 y = self.model(x)
-                x = x[0].cpu().numpy()
-                y = y[0].cpu().numpy()
+                x = x[0].cpu().numpy() * scale
+                y = y[0].cpu().numpy() * scale
                 plot_spectrograms([x, y], self.output_dir.joinpath(f"{id}.png"))
                 predict_audios.append(Audio(id, y))
         return predict_audios

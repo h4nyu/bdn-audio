@@ -1,5 +1,14 @@
 import torch
-from app.models import SSE1d, CSE1d, SCSE1d, SENextBottleneck1d, Down1d, Up1d, UNet1d, ResNext1d
+from app.models import (
+    SSE1d,
+    CSE1d,
+    SCSE1d,
+    SENextBottleneck1d,
+    Down1d,
+    Up1d,
+    UNet1d,
+    ResNext1d,
+)
 
 
 def test_sse1d() -> None:

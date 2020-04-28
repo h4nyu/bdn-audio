@@ -3,7 +3,17 @@ import typing as t
 from .cache import Cache
 from .config import NOISED_TGT_DIR, RAW_TGT_DIR
 from .entities import Audios, Audio
-from .preprocess import load_audios, show_detail, save_wav, Noise, summary, KFold
+from .preprocess import (
+    load_audios,
+    show_detail,
+    save_wav,
+    Noise,
+    summary,
+    KFold,
+    ToAudio,
+    ToMel,
+    Mse,
+)
 from .train import Trainer, Predict
 from concurrent import futures
 from pathlib import Path
@@ -74,6 +84,19 @@ def dummy_aug(p: float = 0.2) -> t.Any:
             for audio in noised_audios
         ]
     )
+
+
+def mel_to_audio() -> None:
+    audios = load_audios(RAW_TGT_DIR)[:2]
+    spectrograms = [x.spectrogram for x in audios]
+    to_audio = ToAudio()
+    to_mel = ToMel()
+    timeseries = [to_audio(i) for i in spectrograms]
+
+    inv_spectrograms = [to_mel(i) for i in timeseries]
+    mse = Mse()
+    a = sum([mse(x, y) for x, y in zip(inv_spectrograms, spectrograms)])
+    print(a)
 
 
 def train() -> None:

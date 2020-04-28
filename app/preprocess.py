@@ -11,6 +11,7 @@ from tqdm import tqdm
 from sklearn.metrics import fbeta_score
 from sklearn.model_selection import KFold as _KFold
 from .entities import Audios, Audio
+from sklearn.metrics import mean_squared_error
 from cytoolz.curried import unique, pipe, map, mapcat, frequencies, topk
 import matplotlib.pyplot as plt
 from app.config import NOISED_TGT_DIR, RAW_TGT_DIR
@@ -58,10 +59,7 @@ def summary(audios: Audios) -> t.Dict[str, t.Any]:
 def plot_spectrograms(
     spectrograms: t.Sequence[t.Any], path: t.Union[str, Path]
 ) -> None:
-    log_spectgrams = [
-        np.log(x)
-        for x in spectrograms
-    ]
+    log_spectgrams = [np.log(x) for x in spectrograms]
     all_values = np.concatenate(log_spectgrams)
     _max = np.max(all_values)
     _min = np.min(all_values)
@@ -110,7 +108,9 @@ class Noise:
         mask = np.random.choice(
             [False, True], size=spectrogram.shape, p=[self.p, (1 - self.p)]
         )
-        fill_values = np.logical_not(mask) * np.random.rand(*spectrogram.shape) * self.high
+        fill_values = (
+            np.logical_not(mask) * np.random.rand(*spectrogram.shape) * self.high
+        )
         masked = spectrogram * (mask + fill_values)
         return masked
 
@@ -125,8 +125,9 @@ class RandomCrop1d:
         start = np.random.randint(low=0, high=high)
         return x[:, start : start + self.length], y[:, start : start + self.length]
 
+
 class RandomCrop2d:
-    def __init__(self, h: int, w:int) -> None:
+    def __init__(self, h: int, w: int) -> None:
         self.h = h
         self.w = w
 
@@ -140,7 +141,10 @@ class RandomCrop2d:
         start_w = 0
         if width > 0:
             start_w = np.random.randint(low=0, high=width)
-        return x[start_w: start_w + self.w, start_h : start_h + self.h], y[start_w: start_w + self.w:, start_h : start_h + self.h]
+        return (
+            x[start_w : start_w + self.w, start_h : start_h + self.h],
+            y[start_w : start_w + self.w :, start_h : start_h + self.h],
+        )
 
 
 class Flip1d:
@@ -172,6 +176,30 @@ class RandomScale:
             return x * scale, y * scale
         else:
             return x, y
+
+
+class Mse:
+    def __init__(self) -> None:
+        ...
+
+    def __call__(self, x: t.Any, y: t.Any) -> t.Any:
+        return mean_squared_error(x, y)
+
+
+class ToMel:
+    def __init__(self) -> None:
+        ...
+
+    def __call__(self, x: t.Any) -> t.Any:
+        return librosa.feature.melspectrogram(x)
+
+
+class ToAudio:
+    def __init__(self, sr: int = 22050) -> None:
+        self.sr = sr
+
+    def __call__(self, x: t.Any) -> t.Any:
+        return mel_to_audio(x, sr=self.sr)
 
 
 class Scaler:
