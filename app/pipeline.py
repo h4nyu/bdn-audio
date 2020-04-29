@@ -13,6 +13,7 @@ from .preprocess import (
     ToAudio,
     ToMel,
     Mse,
+    plot_spectrograms,
 )
 from .train import Trainer, Predict
 from concurrent import futures
@@ -99,21 +100,43 @@ def mel_to_audio() -> None:
     print(a)
 
 
-def train() -> None:
+def train(fold_idx:int) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)
     kf = KFold(n_split=10)
-    for i, (train, valid) in enumerate(kf(raw_audios)):
-        t = Trainer(train, valid, output_dir=Path(f"/store/model-{i}"))
-        t.train(4000)
+    train, valid = list(kf(raw_audios))[fold_idx]
+    t = Trainer(train, valid, output_dir=Path(f"/store/model-{fold_idx}"))
+    t.train(4000)
 
 
 def predict() -> None:
     noised_audios = load_audios(NOISED_TGT_DIR)
-    clean_audios = Predict(
-        "/store/model-0/model.pth", noised_audios, "/store/predict-0"
-    )()
-    power_spectrograms = [x.spectrogram for x in clean_audios]
-    submit_dir = Path("/store/predict-0/submit")
+    submit_dir = Path("/store/predict")
     submit_dir.mkdir(exist_ok=True)
-    for sp, audio in zip(power_spectrograms, clean_audios):
-        np.save(submit_dir.joinpath(f"tgt_{audio.id}.npy"), sp)
+    fold_preds = [
+        Predict(
+            f"/store/model-{i}/model.pth", noised_audios, submit_dir
+        )()
+        for i
+        in [0]
+    ]
+    for x, ys in zip(noised_audios, zip(*fold_preds)):
+        x_sp = x.spectrogram
+        y_spes = [
+            y.spectrogram
+            for y
+            in ys
+        ]
+        merged = sum(y_spes) / len(y_spes)
+        print(np.isnan(merged).sum())
+        print(np.min(merged), np.min(x_sp))
+        print(np.max(merged), np.max(x_sp))
+
+        plot_spectrograms(
+            [
+                np.log(x_sp),
+                np.log(merged),
+            ],
+            submit_dir.joinpath(f"{x.id}.png")
+        )
+
+        np.save(file=submit_dir.joinpath(f"tgt_{x.id}.npy"), arr=merged, allow_pickle=False, fix_imports=False)

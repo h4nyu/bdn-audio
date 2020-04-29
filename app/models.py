@@ -386,18 +386,18 @@ class Up2d(nn.Module):
         in_channels: int,
         out_channels: int,
         bilinear: bool = False,
-        marge: bool = True,
+        merge: bool = True,
     ) -> None:
         super().__init__()
         # if bilinear, use the normal convolutions to reduce the number of channels
-        self.marge = marge
+        self.merge = merge
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
         else:
             self.up = nn.ConvTranspose2d(
                 in_channels, in_channels, kernel_size=2, stride=2
             )
-        if self.marge:
+        if self.merge:
             self.conv1 = ConvBR2d(
                 in_channels + out_channels, in_channels, kernel_size=3, padding=1
             )
@@ -410,7 +410,7 @@ class Up2d(nn.Module):
         diff_h = torch.tensor([x2.size()[2] - x1.size()[2]])
         diff_w = torch.tensor([x2.size()[3] - x1.size()[3]])
         x1 = F.pad(x1, (diff_h - diff_h // 2, diff_w - diff_w // 2))
-        if self.marge:
+        if self.merge:
             x = torch.cat([x2, x1], dim=1)
         else:
             x = x1
@@ -422,7 +422,7 @@ class Up2d(nn.Module):
 class UNet1d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        channels = np.array([128, 256, 512, 1024]) // 2
+        channels = np.array([128, 256, 512, 1024])
 
         self.in_channels = in_channels
         self.inc = nn.Sequential(
@@ -488,7 +488,7 @@ class UNet1d(nn.Module):
 class UNet2d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        channels = np.array([64, 128, 256, 512]) * 2
+        channels = np.array([64, 128, 256, 512])
 
         self.in_channels = in_channels
         self.inc = nn.Sequential(
@@ -505,15 +505,15 @@ class UNet2d(nn.Module):
         self.down3 = Down2d(channels[2], channels[3], pool="avg")
         self.up1 = Up2d(channels[-1], channels[-2], bilinear=True)
         self.up2 = Up2d(channels[-2], channels[-3], bilinear=True)
-        self.up3 = Up2d(channels[-3], channels[-4], bilinear=True)
+        self.up3 = Up2d(channels[-3], channels[-4], bilinear=False, merge=False)
         self.outc = nn.Sequential(
             nn.Conv2d(channels[-4], 1, kernel_size=3, stride=1, padding=1),
+            nn.Sigmoid(),
         )
 
     def forward(self, x):  # type: ignore
         input_shape = x.shape
         x = x.view(x.shape[0], 1, *x.shape[1:])
-        x = torch.log(x)
         n1 = self.inc(x)  # [B, 64, L]
         n2 = self.down1(n1)  # [B, 128, L//2]
         n3 = self.down2(n2)  # [B, 256, L//4]
@@ -522,8 +522,8 @@ class UNet2d(nn.Module):
         n = self.up2(n, n2)
         n = self.up3(n, n1)
         n = self.outc(n)
-        x = torch.exp(n)
-        x = x.view(*input_shape) * 400
+        x = n
+        x = x.view(*input_shape)
         return x
 
 

@@ -17,7 +17,7 @@ from concurrent import futures
 from datetime import datetime
 
 #  from .models import UNet1d as NNModel
-from .models import UNet1d as NNModel
+from .models import UNet2d as NNModel
 
 #  from .models import LogCoshLoss as Loss
 from torch.nn import L1Loss as Loss
@@ -38,14 +38,14 @@ class Trainer:
         self.device = DEVICE
         resolution = 64
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.Adam(self.model.parameters())  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters())  # type: ignore
         self.objective = Loss()
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
                 Dataset(train_data, resolution=resolution, mode="train",),
                 shuffle=True,
-                batch_size=32,
+                batch_size=16,
                 drop_last=True,
             ),
             "test": DataLoader(
@@ -72,16 +72,15 @@ class Trainer:
         score = 0.0
         count = 0
         base_score = 0.0
-        for i in tqdm(range(10)):
-            for img, label, _ in self.data_loaders["train"]:
-                count = count + 1
-                img, label = img.to(self.device), label.to(self.device)
-                pred = self.model(img)
-                loss = self.objective(pred, label)
-                loss.backward()
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-                epoch_loss += loss.item()
+        for img, label, _ in tqdm(self.data_loaders["train"]):
+            count = count + 1
+            img, label = img.to(self.device), label.to(self.device)
+            pred = self.model(img)
+            loss = self.objective(pred, label)
+            loss.backward()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            epoch_loss += loss.item()
 
         x = img[0].detach().cpu().numpy()
         pred = pred[0].detach().cpu().numpy()
@@ -151,9 +150,8 @@ class Trainer:
             self.epoch = epoch
             self.train_one_epoch()
             _, score = self.eval_one_epoch()
-            if score < self.best_score:
-                self.save_checkpoint()
-                self.best_score = score
+            self.save_checkpoint()
+            self.best_score = score
 
 
 class Predict:
@@ -173,13 +171,12 @@ class Predict:
         self.model.eval()
         predict_audios: Audios = []
         with torch.no_grad():
-            for x, ids, scales in self.data_loader:
+            for x, ids, _mins, scales in self.data_loader:
                 id = ids[0]
+                _min = _mins[0].item()
                 scale = scales[0].item()
                 x = x.to(DEVICE)
                 y = self.model(x)
-                x = x[0].cpu().numpy() * scale
-                y = y[0].cpu().numpy() * scale
-                plot_spectrograms([x, y], self.output_dir.joinpath(f"{id}.png"))
+                y = np.exp(y[0].cpu().numpy() * scale + _min)
                 predict_audios.append(Audio(id, y))
         return predict_audios

@@ -27,6 +27,11 @@ class Dataset(_Dataset):
 
     def transform(self, audio: Audio) -> t.Tuple[t.Any, t.Any]:
         raw = audio.spectrogram.copy()
+        raw = np.log(raw)
+        _min = np.min(raw)
+        _max = np.max(raw)
+        scale = _max - _min
+        raw = (raw - _min) / scale
         if self.mode == "train":
             shape = raw.shape
             low = (
@@ -34,17 +39,15 @@ class Dataset(_Dataset):
             )
             w = np.random.randint(low=low, high=shape[1] * 1.2)
             raw = Resize(height=128, width=w)(image=raw)["image"]
-        noised = Noise(p=0.3, high=0.5, low=0.01)(raw.copy())
-        scale = np.max(raw)
-        noised, raw = noised / scale, raw / scale
+        noised = Noise(p=0.1, high=1, low=0.5)(raw.copy())
         if self.mode == "train":
-            resized = RandomCrop(height=128, width=self.resolution)(
+            resized = RandomCrop(height=self.resolution, width=self.resolution)(
                 image=noised, mask=raw
             )
             noised, raw = resized["image"], resized["mask"]
             noised, raw = Flip1d(p=0.5)(noised, raw)
             noised, raw = RandomScale(p=1, low=0.98, high=1.02)(noised, raw)
-        return noised, raw, scale
+        return noised, raw, (_max, _min, scale)
 
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, t.Any, t.Any]:
         row = self.audios[idx]
@@ -62,6 +65,9 @@ class PredictDataset(_Dataset):
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, str]:
         row = self.audios[idx]
         sp = row.spectrogram
-        scale = np.max(sp)
-        sp = sp / scale
-        return sp, row.id, scale
+        sp = np.log(sp)
+        _min = np.min(sp)
+        _max = np.max(sp)
+        scale = _max - _min
+        sp = (sp - _min) / scale
+        return sp, row.id, _min, scale

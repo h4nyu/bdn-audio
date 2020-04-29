@@ -59,12 +59,11 @@ def summary(audios: Audios) -> t.Dict[str, t.Any]:
 def plot_spectrograms(
     spectrograms: t.Sequence[t.Any], path: t.Union[str, Path]
 ) -> None:
-    log_spectgrams = [np.log(x) for x in spectrograms]
-    all_values = np.concatenate(log_spectgrams)
+    all_values = np.concatenate(spectrograms)
     _max = np.max(all_values)
     _min = np.min(all_values)
     fig, axs = plt.subplots(len(spectrograms), sharex=True)
-    for sp, ax in zip(log_spectgrams, axs):
+    for sp, ax in zip(spectrograms, axs):
         im = ax.imshow(sp, interpolation="nearest", cmap="jet", vmax=_max, vmin=_min)
         fig.colorbar(im, ax=ax)
         ax.set_aspect("auto")
@@ -109,7 +108,7 @@ class Noise:
             [False, True], size=spectrogram.shape, p=[self.p, (1 - self.p)]
         )
         fill_values = (
-            np.logical_not(mask) * np.random.rand(*spectrogram.shape) * self.high
+            np.logical_not(mask) * np.random.uniform(high=self.high, low=self.low, size=spectrogram.shape)
         )
         masked = spectrogram * (mask + fill_values)
         return masked
