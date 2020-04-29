@@ -109,7 +109,7 @@ def train(fold_idx:int) -> None:
 
 
 def predict() -> None:
-    noised_audios = load_audios(NOISED_TGT_DIR)
+    noised_audios = load_audios(NOISED_TGT_DIR)[:10]
     submit_dir = Path("/store/predict")
     submit_dir.mkdir(exist_ok=True)
     fold_preds = [
@@ -127,8 +127,10 @@ def predict() -> None:
             in ys
         ]
         merged = sum(y_spes) / len(y_spes)
-        print(np.isnan(merged).sum())
-        print(np.min(merged), np.min(x_sp))
+        #  print(np.isnan(merged).sum())
+        #  adjust =  x_sp.max() / merged.max()
+        adjust =  x_sp.mean() / merged.mean()
+        merged = adjust * merged
         print(np.max(merged), np.max(x_sp))
 
         plot_spectrograms(
@@ -139,4 +141,14 @@ def predict() -> None:
             submit_dir.joinpath(f"{x.id}.png")
         )
 
-        np.save(file=submit_dir.joinpath(f"tgt_{x.id}.npy"), arr=merged, allow_pickle=False, fix_imports=False)
+        plot_spectrograms(
+            [
+                x_sp,
+                merged,
+                x_sp - merged,
+            ],
+            submit_dir.joinpath(f"diff-{x.id}.png")
+        )
+
+
+        np.save(file=submit_dir.joinpath(f"tgt_{x.id}.npy"), arr=merged)
