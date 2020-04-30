@@ -5,7 +5,7 @@ import os
 from .entities import Audios, Audio
 from .dataset import Dataset, PredictDataset
 from .config import VALUE_RANGE
-from .preprocess import Flip1d
+from .preprocess import HFlip1d
 import os
 import torch
 from pathlib import Path
@@ -37,9 +37,9 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = 32
+        resolution = 48
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.0001)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.00001)  # type: ignore
         self.objective = Loss()
         self.epoch = 1
         self.data_loaders: DataLoaders = {
@@ -173,7 +173,7 @@ class Predict:
         self.model.load_state_dict(torch.load(self.model_path))
         self.model.eval()
         predict_audios: Audios = []
-        flip = Flip1d(p=1)
+        hflip = HFlip1d(p=1)
         with torch.no_grad():
             for x, hfliped, ids, scales in self.data_loader:
                 id = ids[0]
@@ -181,7 +181,7 @@ class Predict:
                 x, hfliped = x.to(DEVICE), hfliped.to(DEVICE)
                 y = self.model(x)[0].cpu().numpy() * scale
                 h_y = self.model(hfliped)[0].cpu().numpy() * scale
-                y = (y + flip(h_y, h_y)[0]) / 2
+                y = (y + hflip(h_y, h_y)[0]) / 2
                 y = y
                 predict_audios.append(Audio(id, y))
         return predict_audios

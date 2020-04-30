@@ -146,7 +146,7 @@ class RandomCrop2d:
         )
 
 
-class Flip1d:
+class HFlip1d:
     def __init__(self, p: float) -> None:
         self.p = p
 
@@ -156,6 +156,19 @@ class Flip1d:
         )[0]
         if is_enable:
             return x[:, ::-1].copy(), y[:, ::-1].copy()
+        else:
+            return x, y
+
+class VFlip1d:
+    def __init__(self, p: float) -> None:
+        self.p = p
+
+    def __call__(self, x: t.Any, y: t.Any) -> t.Tuple[t.Any, t.Any]:
+        is_enable = np.random.choice(
+            [False, True], size=(1,), p=[self.p, (1 - self.p)]
+        )[0]
+        if is_enable:
+            return x[::-1, :].copy(), y[::-1, :].copy()
         else:
             return x, y
 

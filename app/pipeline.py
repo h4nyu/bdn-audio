@@ -137,6 +137,7 @@ def pre_submit() -> None:
         count += 1
         x_sp = x.spectrogram
         y_spes = [
+            #  i.spectrogram * np.max(x_sp) / np.max(i.spectrogram)
             i.spectrogram
             for i
             in ys
