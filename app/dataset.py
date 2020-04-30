@@ -5,7 +5,7 @@ from .entities import Audios, Audio
 from .preprocess import Noise, RandomCrop1d, Scaler, HFlip1d, VFlip1d, RandomScale, RandomCrop2d
 from .config import VALUE_RANGE
 from sklearn.preprocessing import MinMaxScaler
-from albumentations.augmentations.transforms import Resize, RandomCrop, RandomGridShuffle
+from albumentations.augmentations.transforms import Resize, RandomCrop, RandomGridShuffle, ElasticTransform
 import librosa
 
 Mode = t.Literal["Test", "Train"]
@@ -42,6 +42,9 @@ class Dataset(_Dataset):
                 image=noised, mask=raw
             )
             noised, raw = resized["image"], resized["mask"]
+
+            elastic = ElasticTransform(p=1, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03)(image=noised, mask=raw)
+            noised, raw = elastic['image'], elastic['mask']
             noised, raw = HFlip1d(p=0.5)(noised, raw)
             noised, raw = VFlip1d(p=0.5)(noised, raw)
             shuffled = RandomGridShuffle(grid=(3, 3), p=1)(image=noised, mask=raw)

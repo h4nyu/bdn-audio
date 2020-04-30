@@ -46,7 +46,7 @@ class Trainer:
             "train": DataLoader(
                 Dataset(train_data, resolution=resolution, mode="train",),
                 shuffle=True,
-                batch_size=16,
+                batch_size=32,
                 drop_last=True,
             ),
             "test": DataLoader(
