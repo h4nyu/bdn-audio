@@ -16,6 +16,7 @@ from .preprocess import (
     plot_spectrograms,
 )
 from .train import Trainer, Predict
+from sklearn.linear_model import LinearRegression
 from concurrent import futures
 from pathlib import Path
 from logging import getLogger
@@ -108,8 +109,69 @@ def train(fold_idx:int) -> None:
     t.train(4000)
 
 
-def predict() -> None:
-    noised_audios = load_audios(NOISED_TGT_DIR)[:10]
+def pre_submit() -> None:
+    raw_audios = load_audios(RAW_TGT_DIR)[:10]
+    noise = Noise(p=0.5, high=1.0, low=0.001)
+    noised_audios = [
+        Audio(
+            x.id,
+            noise(x.spectrogram)
+        )
+        for x
+        in raw_audios
+    ]
+
+    submit_dir = Path("/store/pre_submit")
+    submit_dir.mkdir(exist_ok=True)
+    fold_preds = [
+        Predict(
+            f"/store/model-{i}/model.pth", noised_audios, submit_dir
+        )()
+        for i
+        in [1]
+    ]
+    score = 0
+    base_score = 0.0
+    count = 1
+    for x, ys, gt in zip(noised_audios, zip(*fold_preds), raw_audios):
+        count += 1
+        x_sp = x.spectrogram
+        y_spes = [
+            i.spectrogram
+            for i
+            in ys
+        ]
+
+        y_gt = gt.spectrogram
+        merged = sum(y_spes) / len(y_spes)
+        print(np.max(merged), np.max(x_sp))
+        mse = Mse()
+        score += mse(merged, y_gt)
+        base_score += mse(x_sp, y_gt)
+        plot_spectrograms(
+            [
+                np.log(x_sp),
+                np.log(merged),
+                np.log(y_gt),
+            ],
+            submit_dir.joinpath(f"{x.id}.png")
+        )
+
+        plot_spectrograms(
+            [
+                x_sp,
+                merged,
+                x_sp - merged,
+            ],
+            submit_dir.joinpath(f"diff-{x.id}.png")
+        )
+    #  score = score / count
+    #  base_score = base_score / count
+    print(f"{score=} {base_score=}")
+
+
+def submit() -> None:
+    noised_audios = load_audios(NOISED_TGT_DIR)
     submit_dir = Path("/store/predict")
     submit_dir.mkdir(exist_ok=True)
     fold_preds = [
@@ -127,10 +189,6 @@ def predict() -> None:
             in ys
         ]
         merged = sum(y_spes) / len(y_spes)
-        #  print(np.isnan(merged).sum())
-        #  adjust =  x_sp.max() / merged.max()
-        adjust =  x_sp.mean() / merged.mean()
-        merged = adjust * merged
         print(np.max(merged), np.max(x_sp))
 
         plot_spectrograms(

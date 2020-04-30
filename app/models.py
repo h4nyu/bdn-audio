@@ -499,14 +499,15 @@ class UNet2d(nn.Module):
                 padding=2,
             ),
         )
-        self.down1 = Down2d(channels[0], channels[1], pool="max")
-        self.down2 = Down2d(channels[1], channels[2], pool="max")
+        self.down1 = Down2d(channels[0], channels[1], pool="avg")
+        self.down2 = Down2d(channels[1], channels[2], pool="avg")
         self.down3 = Down2d(channels[2], channels[3], pool="avg")
         self.up1 = Up2d(channels[-1], channels[-2], bilinear=True)
         self.up2 = Up2d(channels[-2], channels[-3], bilinear=True)
-        self.up3 = Up2d(channels[-3], channels[-4], bilinear=False, merge=True)
+        self.up3 = Up2d(channels[-3], channels[-4], bilinear=False, merge=False)
         self.outc = nn.Sequential(
-            ConvBR2d(channels[-4], channels[-4], kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(channels[-4], channels[-4], kernel_size=1, stride=1, padding=0),
+            nn.ReLU(inplace=True),
             nn.Conv2d(channels[-4], 1, kernel_size=1, stride=1, padding=0),
             nn.Sigmoid(),
         )
@@ -521,9 +522,7 @@ class UNet2d(nn.Module):
         n = self.up1(n4, n3)
         n = self.up2(n, n2)
         n = self.up3(n, n1)
-        #  x = x + n
-        x = n
-        x = self.outc(x)
+        x = self.outc(n)
         x = x.view(*input_shape)
         return x
 
