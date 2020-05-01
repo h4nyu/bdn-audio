@@ -487,42 +487,35 @@ class UNet1d(nn.Module):
 class UNet2d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        channels = np.array([64, 128, 256, 512])
+        base_channel = 128
+        multiplier = 2
 
         self.in_channels = in_channels
         self.inc = nn.Sequential(
             nn.Conv2d(
                 in_channels=1,
-                out_channels=channels[0],
+                out_channels=base_channel,
                 kernel_size=5,
                 stride=1,
                 padding=2,
             ),
         )
-        self.down1 = Down2d(channels[0], channels[1], pool="avg")
-        self.down2 = Down2d(channels[1], channels[2], pool="avg")
-        self.down3 = Down2d(channels[2], channels[3], pool="avg")
-        self.up1 = Up2d(channels[-1], channels[-2], bilinear=True)
-        self.up2 = Up2d(channels[-2], channels[-3], bilinear=True)
-        self.up3 = Up2d(channels[-3], channels[-4], bilinear=False, merge=False)
+        self.down1 = Down2d(base_channel, base_channel * 2, pool="max")
+        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=True)
+
         self.outc = nn.Sequential(
-            nn.Conv2d(channels[-4], channels[-4], kernel_size=1, stride=1, padding=0),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(channels[-4], 1, kernel_size=1, stride=1, padding=0),
-            nn.Sigmoid(),
+            nn.Conv2d(base_channel, 1, kernel_size=1, stride=1, padding=0),
         )
 
     def forward(self, x):  # type: ignore
         input_shape = x.shape
         x = x.view(x.shape[0], 1, *x.shape[1:])
+        x = torch.log(x)
         n1 = self.inc(x)  # [B, 64, L]
-        n2 = self.down1(n1)  # [B, 128, L//2]
-        n3 = self.down2(n2)  # [B, 256, L//4]
-        n4 = self.down3(n3)  # [B, 256, L//4]
-        n = self.up1(n4, n3)
-        n = self.up2(n, n2)
-        n = self.up3(n, n1)
+        n = self.down1(n1)  # [B, 128, L//2]
+        n = self.up1(n, n1)
         x = self.outc(n)
+        x = torch.exp(x)
         x = x.view(*input_shape)
         return x
 

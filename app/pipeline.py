@@ -111,7 +111,7 @@ def train(fold_idx:int) -> None:
 
 def pre_submit() -> None:
     raw_audios = load_audios(RAW_TGT_DIR)[:10]
-    noise = Noise(p=0.5, high=1.0, low=0.001)
+    noise = Noise(p=0.6, high=1.1, low=0.0001)
     noised_audios = [
         Audio(
             x.id,
@@ -128,7 +128,7 @@ def pre_submit() -> None:
             f"/store/model-{i}/model.pth", noised_audios, submit_dir
         )()
         for i
-        in [1]
+        in [3]
     ]
     score = 0
     base_score = 0.0
@@ -145,6 +145,7 @@ def pre_submit() -> None:
 
         y_gt = gt.spectrogram
         merged = sum(y_spes) / len(y_spes)
+        merged = merged * x_sp.mean() / merged.mean()
         print(np.max(merged), np.max(x_sp))
         mse = Mse()
         score += mse(merged, y_gt)
@@ -180,7 +181,7 @@ def submit() -> None:
             f"/store/model-{i}/model.pth", noised_audios, submit_dir
         )()
         for i
-        in [0]
+        in [3]
     ]
     for x, ys in zip(noised_audios, zip(*fold_preds)):
         x_sp = x.spectrogram
