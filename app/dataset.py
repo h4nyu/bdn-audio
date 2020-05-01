@@ -27,8 +27,14 @@ class Dataset(_Dataset):
 
     def transform(self, audio: Audio) -> t.Tuple[t.Any, t.Any]:
         raw = audio.spectrogram.copy()
-        scale = np.max(raw)
-        raw = raw / scale
+        noised = Noise(p=0.7, high=1, low=0.001)(raw.copy())
+        raw = np.log(raw)
+        noised = np.log(noised)
+        _min = np.min(raw)
+        _max = np.max(raw)
+        scale = _max - _min
+        raw = (raw - _min) / scale
+        noised = (noised - _min) / scale
         if self.mode == "train":
             shape = raw.shape
             low = (
@@ -36,7 +42,6 @@ class Dataset(_Dataset):
             )
             w = np.random.randint(low=low, high=shape[1] * 1.2)
             raw = Resize(height=128, width=w)(image=raw)["image"]
-        noised = Noise(p=0.7, high=1, low=0.001)(raw.copy())
         if self.mode == "train":
             resized = RandomCrop(height=self.resolution, width=self.resolution)(
                 image=noised, mask=raw
@@ -47,14 +52,14 @@ class Dataset(_Dataset):
             noised, raw = elastic['image'], elastic['mask']
             noised, raw = HFlip1d(p=0.5)(noised, raw)
             noised, raw = VFlip1d(p=0.5)(noised, raw)
-            shuffled = RandomGridShuffle(grid=(3, 3), p=1)(image=noised, mask=raw)
-            noised, raw = shuffled['image'], shuffled['mask']
-        return noised, raw, scale
+            noised, raw = RandomScale(p=1, high=1.01, low=0.1)(noised, raw)
+            #  shuffled = RandomGridShuffle(grid=(3, 3), p=1)(image=noised, mask=raw)
+            #  noised, raw = shuffled['image'], shuffled['mask']
+        return noised, raw, scale, _min, _max
 
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, t.Any, t.Any]:
         row = self.audios[idx]
-        noised, raw, scale = self.transform(row)
-        return (noised, raw, scale)
+        return self.transform(row)
 
 
 class PredictDataset(_Dataset):

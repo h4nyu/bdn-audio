@@ -128,7 +128,7 @@ def pre_submit() -> None:
             f"/store/model-{i}/model.pth", noised_audios, submit_dir
         )()
         for i
-        in [1]
+        in [0]
     ]
     score = 0
     base_score = 0.0
