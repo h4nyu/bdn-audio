@@ -18,10 +18,11 @@ from concurrent import futures
 from datetime import datetime
 
 #  from .models import UNet1d as NNModel
-from .models import UNet2d as NNModel
+from .models import UNet1d as NNModel
+#  from .models import UNet2d as NNModel
 
 #  from .models import LogCoshLoss as Loss
-from torch.nn import MSELoss as Loss
+from torch.nn import L1Loss as Loss
 from logging import getLogger
 import librosa
 from tqdm import tqdm
@@ -37,16 +38,15 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = 48
+        resolution = 32
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters())  # type: ignore
-        self.objective = Loss()
+        self.optimizer = optim.SGD(self.model.parameters(), lr=0.0001)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                Dataset(train_data, resolution=resolution, mode="train",),
+                Dataset(train_data + train_data + train_data, resolution=resolution, mode="train",),
                 shuffle=True,
-                batch_size=8,
+                batch_size=16,
                 drop_last=True,
             ),
             "test": DataLoader(
@@ -97,6 +97,9 @@ class Trainer:
         logger.info(
             f"{epoch=} train {epoch_loss=}"
         )
+    def objective(self, x:t.Any, y:t.Any) -> t.Any:
+        loss_fn = Loss(reduction="none")
+        return (loss_fn(x, y)).sum()
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
         self.model.eval()

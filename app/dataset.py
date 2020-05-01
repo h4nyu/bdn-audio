@@ -27,7 +27,7 @@ class Dataset(_Dataset):
 
     def transform(self, audio: Audio) -> t.Tuple[t.Any, t.Any]:
         raw = audio.spectrogram.copy()
-        noised = Noise(p=0.7, high=1, low=0.001)(raw.copy())
+        noised = Noise(p=0.1, high=1, low=0.001)(raw.copy())
         raw = np.log(raw)
         noised = np.log(noised)
         _min = np.min(raw)
@@ -43,13 +43,13 @@ class Dataset(_Dataset):
             w = np.random.randint(low=low, high=shape[1] * 1.2)
             raw = Resize(height=128, width=w)(image=raw)["image"]
         if self.mode == "train":
-            resized = RandomCrop(height=self.resolution, width=self.resolution)(
+            resized = RandomCrop(height=128, width=self.resolution)(
                 image=noised, mask=raw
             )
             noised, raw = resized["image"], resized["mask"]
 
-            elastic = ElasticTransform(p=1, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03)(image=noised, mask=raw)
-            noised, raw = elastic['image'], elastic['mask']
+            #  elastic = ElasticTransform(p=1, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03)(image=noised, mask=raw)
+            #  noised, raw = elastic['image'], elastic['mask']
             noised, raw = HFlip1d(p=0.5)(noised, raw)
             noised, raw = VFlip1d(p=0.5)(noised, raw)
             noised, raw = RandomScale(p=1, high=1.01, low=0.1)(noised, raw)
