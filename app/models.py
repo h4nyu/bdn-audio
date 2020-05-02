@@ -487,51 +487,18 @@ class UNet2d(nn.Module):
         self.inc = nn.Sequential(
             nn.Conv2d(
                 in_channels=1,
-<<<<<<< HEAD
                 out_channels=base_channel,
-                kernel_size=5,
-||||||| merged common ancestors
-                out_channels=channels[0],
-                kernel_size=5,
-=======
-                out_channels=channels[0],
                 kernel_size=1,
->>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
                 stride=1,
                 padding=0,
             ),
         )
-<<<<<<< HEAD
         self.down1 = Down2d(base_channel, base_channel * 2, pool="max")
         self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=True)
 
-||||||| merged common ancestors
-        self.down1 = Down2d(channels[0], channels[1], pool="avg")
-        self.down2 = Down2d(channels[1], channels[2], pool="avg")
-        self.down3 = Down2d(channels[2], channels[3], pool="avg")
-        self.up1 = Up2d(channels[-1], channels[-2], bilinear=True)
-        self.up2 = Up2d(channels[-2], channels[-3], bilinear=True)
-        self.up3 = Up2d(channels[-3], channels[-4], bilinear=False, merge=False)
-=======
-        self.down1 = Down2d(channels[0], channels[1], pool="max")
-        self.down2 = Down2d(channels[1], channels[2], pool="max")
-        self.down3 = Down2d(channels[2], channels[3], pool="max")
-        self.up1 = Up2d(channels[-1], channels[-2], bilinear=False, merge=True)
-        self.up2 = Up2d(channels[-2], channels[-3], bilinear=False, merge=True)
-        self.up3 = Up2d(channels[-3], channels[-4], bilinear=False, merge=True)
->>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
         self.outc = nn.Sequential(
-<<<<<<< HEAD
-            nn.Conv2d(base_channel, 1, kernel_size=1, stride=1, padding=0),
-||||||| merged common ancestors
-            nn.Conv2d(channels[-4], channels[-4], kernel_size=1, stride=1, padding=0),
-            nn.ReLU(inplace=True),
             nn.Conv2d(channels[-4], 1, kernel_size=1, stride=1, padding=0),
             nn.Sigmoid(),
-=======
-            nn.Conv2d(channels[-4], 1, kernel_size=1, stride=1, padding=0),
-            nn.Sigmoid(),
->>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
         )
 
     def forward(self, x):  # type: ignore

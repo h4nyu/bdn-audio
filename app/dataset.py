@@ -42,27 +42,14 @@ class Dataset(_Dataset):
             )
             w = np.random.randint(low=low, high=shape[1] * 1.2)
             raw = Resize(height=128, width=w)(image=raw)["image"]
-<<<<<<< HEAD
         noised = Noise(p=0.6, high=1.1, low=0.0001)(raw.copy())
-||||||| merged common ancestors
-        noised = Noise(p=0.7, high=1, low=0.001)(raw.copy())
-=======
->>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
         if self.mode == "train":
             resized = RandomCrop(height=128, width=self.resolution)(
                 image=noised, mask=raw
             )
             noised, raw = resized["image"], resized["mask"]
-<<<<<<< HEAD
-||||||| merged common ancestors
-
-            elastic = ElasticTransform(p=1, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03)(image=noised, mask=raw)
-            noised, raw = elastic['image'], elastic['mask']
-=======
-
             #  elastic = ElasticTransform(p=1, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03)(image=noised, mask=raw)
             #  noised, raw = elastic['image'], elastic['mask']
->>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
             noised, raw = HFlip1d(p=0.5)(noised, raw)
             noised, raw = VFlip1d(p=0.5)(noised, raw)
             noised, raw = RandomScale(p=1, high=1.01, low=0.1)(noised, raw)

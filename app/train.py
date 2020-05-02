@@ -22,14 +22,8 @@ from .models import UNet1d as NNModel
 #  from .models import UNet2d as NNModel
 
 #  from .models import LogCoshLoss as Loss
-<<<<<<< HEAD
 from torch.nn import L1Loss as Loss
 #  from torch.nn import MSELoss as Loss
-||||||| merged common ancestors
-from torch.nn import MSELoss as Loss
-=======
-from torch.nn import L1Loss as Loss
->>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
 from logging import getLogger
 import librosa
 from tqdm import tqdm
@@ -45,13 +39,7 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-<<<<<<< HEAD
         resolution = 64
-||||||| merged common ancestors
-        resolution = 48
-=======
-        resolution = 32
->>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
         self.optimizer = optim.SGD(self.model.parameters(), lr=0.0001)  # type: ignore
         self.epoch = 1
@@ -59,13 +47,7 @@ class Trainer:
             "train": DataLoader(
                 Dataset(train_data + train_data + train_data, resolution=resolution, mode="train",),
                 shuffle=True,
-<<<<<<< HEAD
-                batch_size=8,
-||||||| merged common ancestors
-                batch_size=32,
-=======
                 batch_size=16,
->>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
                 drop_last=True,
             ),
             "test": DataLoader(
