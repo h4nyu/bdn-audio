@@ -17,13 +17,13 @@ from sklearn.metrics import mean_squared_error
 from concurrent import futures
 from datetime import datetime
 
-#  from .models import UNet1d as NNModel
 from .models import UNet1d as NNModel
+#  from .models import UNet2d as NNModel
 #  from .models import UNet2d as NNModel
 
 #  from .models import LogCoshLoss as Loss
-from torch.nn import L1Loss as Loss
-#  from torch.nn import MSELoss as Loss
+#  from torch.nn import L1Loss as Loss
+from torch.nn import MSELoss as Loss
 from logging import getLogger
 import librosa
 from tqdm import tqdm
@@ -39,13 +39,13 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = 64
+        resolution = (128, 32)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.SGD(self.model.parameters(), lr=0.0001)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.0001)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                Dataset(train_data + train_data + train_data, resolution=resolution, mode="train",),
+                Dataset(train_data + train_data, resolution=resolution, mode="train",),
                 shuffle=True,
                 batch_size=16,
                 drop_last=True,
@@ -83,7 +83,6 @@ class Trainer:
             self.optimizer.step()
             self.optimizer.zero_grad()
             epoch_loss += loss.item()
-
             x = img[0].detach().cpu().numpy()
             pred = pred[0].detach().cpu().numpy()
             y = label[0].detach().cpu().numpy()
@@ -119,7 +118,7 @@ class Trainer:
                 scale = scales[0].item()
                 _min = _mins[0].item()
                 x, pred, y = [
-                    np.exp(i[0].detach().cpu().numpy() * scale + _min)
+                    i[0].detach().cpu().numpy() * scale + _min
                     for i
                     in [img, pred, label]
                 ]
@@ -127,7 +126,7 @@ class Trainer:
                 base_score += mean_squared_error(x, y,)
 
         plot_spectrograms(
-            [np.log(i) for i in [x, pred, y]], self.output_dir.joinpath(f"eval.png"),
+            [i for i in [x, pred, y]], self.output_dir.joinpath(f"eval.png"),
         )
         epoch_loss = epoch_loss / count
         score = score / count
@@ -176,13 +175,14 @@ class Predict:
         predict_audios: Audios = []
         hflip = HFlip1d(p=1)
         with torch.no_grad():
-            for x, hfliped, ids, scales in self.data_loader:
+            for x, hfliped, ids, scales, _mins in self.data_loader:
                 id = ids[0]
                 scale = scales[0].item()
+                _min = _mins[0].item()
                 x, hfliped = x.to(DEVICE), hfliped.to(DEVICE)
-                y = self.model(x)[0].cpu().numpy() * scale
-                h_y = self.model(hfliped)[0].cpu().numpy() * scale
+                y = self.model(x)[0].cpu().numpy()
+                h_y = self.model(hfliped)[0].cpu().numpy()
                 y = (y + hflip(h_y, h_y)[0]) / 2
-                y = y
+                y = np.exp(y * scale + _min)
                 predict_audios.append(Audio(id, y))
         return predict_audios

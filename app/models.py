@@ -422,58 +422,33 @@ class Up2d(nn.Module):
 class UNet1d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        channels = np.array([128, 256, 512, 1024]) * 2
+        base_channel = 128
+        multiplier = 4
 
         self.in_channels = in_channels
+        self.before_up = nn.Upsample(scale_factor=2, mode="nearest")
         self.inc = nn.Sequential(
             nn.Conv1d(
-                in_channels=in_channels,
-                out_channels=channels[0],
-                kernel_size=5,
+                in_channels=128,
+                out_channels=base_channel,
+                kernel_size=3,
                 stride=1,
-                padding=2,
+                padding=1,
             ),
         )
-        self.down1 = Down1d(channels[0], channels[1], pool="max")
-        self.down2 = Down1d(channels[1], channels[2], pool="max")
-        self.down3 = Down1d(channels[2], channels[3], pool="max")
-        self.up1 = Up1d(channels[-1], channels[-2], bilinear=False)
-        self.up2 = Up1d(channels[-2], channels[-3], bilinear=False)
-        self.up3 = Up1d(channels[-3], channels[-4], bilinear=False)
-
-        self.reshape = nn.Sequential(
-            nn.Conv1d(
-                in_channels=channels[-4],
-                out_channels=out_channels,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            ),
-        )
-
+        self.down1 = Down1d(base_channel, base_channel, pool="max")
+        self.up1 = Up1d(base_channel, base_channel)
         self.outc = nn.Sequential(
-            nn.Conv1d(
-                in_channels=out_channels + out_channels,
-                out_channels=out_channels,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            ),
+            nn.Conv1d(base_channel, out_channels, kernel_size=3, stride=2, padding=1),
             nn.Sigmoid(),
         )
 
     def forward(self, x):  # type: ignore
+        x = self.before_up(x)
         n1 = self.inc(x)  # [B, 64, L]
-        n2 = self.down1(n1)  # [B, 128, L//2]
-        n3 = self.down2(n2)  # [B, 256, L//4]
-        n4 = self.down3(n3)  # [B, 512, L//8]
-        n = self.up1(n4, n3)
-        n = self.up2(n, n2)
-        n = self.up3(n, n1)
-        n = self.reshape(n)
-        x = torch.cat([x, n], dim=1)
-        n = self.outc(x)
-        x = n
+        n = self.down1(n1)  # [B, 128, L//2]
+        n = self.up1(n, n1)
+        x = self.outc(n)
         return x
 
 
@@ -481,36 +456,38 @@ class UNet2d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
         base_channel = 128
-        multiplier = 2
+        multiplier = 1
 
         self.in_channels = in_channels
+        self.before_up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
         self.inc = nn.Sequential(
             nn.Conv2d(
                 in_channels=1,
                 out_channels=base_channel,
-                kernel_size=1,
+                kernel_size=3,
                 stride=1,
-                padding=0,
+                padding=1,
             ),
         )
         self.down1 = Down2d(base_channel, base_channel * 2, pool="max")
-        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=True)
+        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=False)
 
         self.outc = nn.Sequential(
-            nn.Conv2d(channels[-4], 1, kernel_size=1, stride=1, padding=0),
+            nn.Conv2d(base_channel, 1, kernel_size=3, stride=2, padding=1),
             nn.Sigmoid(),
         )
+
 
     def forward(self, x):  # type: ignore
         input_shape = x.shape
         x = x.view(x.shape[0], 1, *x.shape[1:])
-        x = torch.log(x)
+        x = self.before_up(x)
         n1 = self.inc(x)  # [B, 64, L]
         n = self.down1(n1)  # [B, 128, L//2]
         n = self.up1(n, n1)
         x = self.outc(n)
-        x = torch.exp(x)
         x = x.view(*input_shape)
+        x = torch.abs(x)
         return x
 
 

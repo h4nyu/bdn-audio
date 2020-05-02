@@ -132,8 +132,11 @@ class RandomCrop2d:
 
     def __call__(self, x: t.Any, y: t.Any) -> t.Tuple[t.Any, t.Any]:
         shape = x.shape
-        high = shape[1] - self.h
-        width = shape[0] - self.w
+        print(x.shape)
+        print(y.shape)
+        high = shape[0] - self.h
+        width = shape[1] - self.w
+        print(high, width)
         start_h = 0
         if high > 0:
             start_h = np.random.randint(low=0, high=high)
@@ -141,8 +144,8 @@ class RandomCrop2d:
         if width > 0:
             start_w = np.random.randint(low=0, high=width)
         return (
-            x[start_w : start_w + self.w, start_h : start_h + self.h],
-            y[start_w : start_w + self.w :, start_h : start_h + self.h],
+            x[start_h : start_h + self.h,  start_w : start_w + self.w,],
+            y[start_h : start_h + self.h, start_w : start_w + self.w:],
         )
 
 

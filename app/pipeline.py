@@ -111,7 +111,7 @@ def train(fold_idx:int) -> None:
 
 def pre_submit() -> None:
     raw_audios = load_audios(RAW_TGT_DIR)[:10]
-    noise = Noise(p=0.6, high=1.1, low=0.0001)
+    noise = Noise(p=0.1, high=0.1, low=0.0001)
     noised_audios = [
         Audio(
             x.id,
