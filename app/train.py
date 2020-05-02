@@ -18,11 +18,18 @@ from concurrent import futures
 from datetime import datetime
 
 #  from .models import UNet1d as NNModel
-from .models import UNet2d as NNModel
+from .models import UNet1d as NNModel
+#  from .models import UNet2d as NNModel
 
 #  from .models import LogCoshLoss as Loss
+<<<<<<< HEAD
 from torch.nn import L1Loss as Loss
 #  from torch.nn import MSELoss as Loss
+||||||| merged common ancestors
+from torch.nn import MSELoss as Loss
+=======
+from torch.nn import L1Loss as Loss
+>>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
 from logging import getLogger
 import librosa
 from tqdm import tqdm
@@ -38,16 +45,27 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
+<<<<<<< HEAD
         resolution = 64
+||||||| merged common ancestors
+        resolution = 48
+=======
+        resolution = 32
+>>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.00001)  # type: ignore
-        self.objective = Loss()
+        self.optimizer = optim.SGD(self.model.parameters(), lr=0.0001)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                Dataset(train_data, resolution=resolution, mode="train",),
+                Dataset(train_data + train_data + train_data, resolution=resolution, mode="train",),
                 shuffle=True,
+<<<<<<< HEAD
                 batch_size=8,
+||||||| merged common ancestors
+                batch_size=32,
+=======
+                batch_size=16,
+>>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
                 drop_last=True,
             ),
             "test": DataLoader(
@@ -74,7 +92,7 @@ class Trainer:
         score = 0.0
         count = 0
         base_score = 0.0
-        for img, label, scales in tqdm(self.data_loaders["train"]):
+        for img, label, _, _, _ in tqdm(self.data_loaders["train"]):
             count = count + 1
             img, label = img.to(self.device), label.to(self.device)
             pred = self.model(img)
@@ -84,12 +102,9 @@ class Trainer:
             self.optimizer.zero_grad()
             epoch_loss += loss.item()
 
-            scale = scales[0].detach().item()
-            x = img[0].detach().cpu().numpy() * scale
-            pred = pred[0].detach().cpu().numpy() * scale
-            y = label[0].detach().cpu().numpy() * scale
-            score += mean_squared_error(pred, y,)
-            base_score += mean_squared_error(x, y,)
+            x = img[0].detach().cpu().numpy()
+            pred = pred[0].detach().cpu().numpy()
+            y = label[0].detach().cpu().numpy()
 
         plot_spectrograms(
             [x, pred, y], self.output_dir.joinpath(f"train.png"),
@@ -98,11 +113,12 @@ class Trainer:
         epoch_loss = epoch_loss / count
         epoch = self.epoch
         score = score / count
-        base_score = base_score / count
-        score_diff = base_score - score
         logger.info(
-            f"{epoch=} train {epoch_loss=} {base_score=} {score=} {score_diff=}"
+            f"{epoch=} train {epoch_loss=}"
         )
+    def objective(self, x:t.Any, y:t.Any) -> t.Any:
+        loss_fn = Loss(reduction="none")
+        return (loss_fn(x, y)).sum()
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
         self.model.eval()
@@ -111,18 +127,20 @@ class Trainer:
         score = 0.0
         base_score = 0.0
         count = 0
-        for img, label, scales in tqdm(self.data_loaders["test"]):
+        for img, label, scales, _mins, _ in tqdm(self.data_loaders["test"]):
             img, label = img.to(self.device), label.to(self.device)
             count += 1
             with torch.no_grad():
                 pred = self.model(img)
                 loss = self.objective(pred, label)
                 epoch_loss += loss.item()
-
-                scale =scales[0].item()
-                x = img[0].cpu().numpy() * scale
-                pred = pred[0].cpu().numpy() * scale
-                y = label[0].cpu().numpy() * scale
+                scale = scales[0].item()
+                _min = _mins[0].item()
+                x, pred, y = [
+                    np.exp(i[0].detach().cpu().numpy() * scale + _min)
+                    for i
+                    in [img, pred, label]
+                ]
                 score += mean_squared_error(pred, y,)
                 base_score += mean_squared_error(x, y,)
 

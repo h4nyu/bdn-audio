@@ -128,7 +128,13 @@ def pre_submit() -> None:
             f"/store/model-{i}/model.pth", noised_audios, submit_dir
         )()
         for i
+<<<<<<< HEAD
         in [3]
+||||||| merged common ancestors
+        in [1]
+=======
+        in [0]
+>>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
     ]
     score = 0
     base_score = 0.0

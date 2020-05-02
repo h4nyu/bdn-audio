@@ -422,53 +422,44 @@ class Up2d(nn.Module):
 class UNet1d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        channels = np.array([128, 256, 512, 1024])
+        channels = np.array([128, 256, 512, 1024]) * 2
 
         self.in_channels = in_channels
         self.inc = nn.Sequential(
-            ConvBR1d(
+            nn.Conv1d(
                 in_channels=in_channels,
                 out_channels=channels[0],
                 kernel_size=5,
                 stride=1,
                 padding=2,
             ),
-            ConvBR1d(
-                in_channels=channels[0],
-                out_channels=channels[0],
-                kernel_size=3,
-                stride=1,
-                padding=1,
-            ),
-            ConvBR1d(
-                in_channels=channels[0],
-                out_channels=channels[0],
-                kernel_size=3,
-                stride=1,
-                padding=1,
-            ),
         )
         self.down1 = Down1d(channels[0], channels[1], pool="max")
         self.down2 = Down1d(channels[1], channels[2], pool="max")
-        self.down3 = Down1d(channels[2], channels[3], pool="avg")
-        self.up1 = Up1d(channels[-1], channels[-2], bilinear=True)
-        self.up2 = Up1d(channels[-2], channels[-3], bilinear=True)
-        self.up3 = Up1d(channels[-3], channels[-4], marge=False, bilinear=True)
-        self.outc = nn.Sequential(
-            ConvBR1d(
-                in_channels=channels[-4],
-                out_channels=out_channels,
-                kernel_size=3,
-                stride=1,
-                padding=1,
-            ),
+        self.down3 = Down1d(channels[2], channels[3], pool="max")
+        self.up1 = Up1d(channels[-1], channels[-2], bilinear=False)
+        self.up2 = Up1d(channels[-2], channels[-3], bilinear=False)
+        self.up3 = Up1d(channels[-3], channels[-4], bilinear=False)
+
+        self.reshape = nn.Sequential(
             nn.Conv1d(
-                in_channels=out_channels,
+                in_channels=channels[-4],
                 out_channels=out_channels,
                 kernel_size=1,
                 stride=1,
                 padding=0,
             ),
+        )
+
+        self.outc = nn.Sequential(
+            nn.Conv1d(
+                in_channels=out_channels + out_channels,
+                out_channels=out_channels,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+            ),
+            nn.Sigmoid(),
         )
 
     def forward(self, x):  # type: ignore
@@ -479,7 +470,9 @@ class UNet1d(nn.Module):
         n = self.up1(n4, n3)
         n = self.up2(n, n2)
         n = self.up3(n, n1)
-        n = self.outc(n)
+        n = self.reshape(n)
+        x = torch.cat([x, n], dim=1)
+        n = self.outc(x)
         x = n
         return x
 
@@ -494,17 +487,51 @@ class UNet2d(nn.Module):
         self.inc = nn.Sequential(
             nn.Conv2d(
                 in_channels=1,
+<<<<<<< HEAD
                 out_channels=base_channel,
                 kernel_size=5,
+||||||| merged common ancestors
+                out_channels=channels[0],
+                kernel_size=5,
+=======
+                out_channels=channels[0],
+                kernel_size=1,
+>>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
                 stride=1,
-                padding=2,
+                padding=0,
             ),
         )
+<<<<<<< HEAD
         self.down1 = Down2d(base_channel, base_channel * 2, pool="max")
         self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=True)
 
+||||||| merged common ancestors
+        self.down1 = Down2d(channels[0], channels[1], pool="avg")
+        self.down2 = Down2d(channels[1], channels[2], pool="avg")
+        self.down3 = Down2d(channels[2], channels[3], pool="avg")
+        self.up1 = Up2d(channels[-1], channels[-2], bilinear=True)
+        self.up2 = Up2d(channels[-2], channels[-3], bilinear=True)
+        self.up3 = Up2d(channels[-3], channels[-4], bilinear=False, merge=False)
+=======
+        self.down1 = Down2d(channels[0], channels[1], pool="max")
+        self.down2 = Down2d(channels[1], channels[2], pool="max")
+        self.down3 = Down2d(channels[2], channels[3], pool="max")
+        self.up1 = Up2d(channels[-1], channels[-2], bilinear=False, merge=True)
+        self.up2 = Up2d(channels[-2], channels[-3], bilinear=False, merge=True)
+        self.up3 = Up2d(channels[-3], channels[-4], bilinear=False, merge=True)
+>>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
         self.outc = nn.Sequential(
+<<<<<<< HEAD
             nn.Conv2d(base_channel, 1, kernel_size=1, stride=1, padding=0),
+||||||| merged common ancestors
+            nn.Conv2d(channels[-4], channels[-4], kernel_size=1, stride=1, padding=0),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channels[-4], 1, kernel_size=1, stride=1, padding=0),
+            nn.Sigmoid(),
+=======
+            nn.Conv2d(channels[-4], 1, kernel_size=1, stride=1, padding=0),
+            nn.Sigmoid(),
+>>>>>>> e062062c0e57a665520fee5e9801b6344c9e8edf
         )
 
     def forward(self, x):  # type: ignore
@@ -566,16 +593,14 @@ class Micro2d(nn.Module):
         channels = np.array([128, 256, 512, 1024, 2048])
         self.inc = nn.Sequential(
             nn.Conv2d(1, channels[0], kernel_size=5, stride=1, padding=2),
-            nn.AvgPool2d(kernel_size=3, stride=1, padding=1),
-        )
-        self.outc = nn.Sequential(
-            nn.Conv2d(
-                in_channels=out_channels,
-                out_channels=1,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-            ),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channels[0], channels[0], kernel_size=3, stride=1, padding=1),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(channels[0], channels[0], kernel_size=5, stride=1, padding=2),
+            nn.ReLU(inplace=True),
+            nn.ConvTranspose2d(channels[0], channels[0], kernel_size=3, stride=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channels[0], 1, kernel_size=3, stride=1),
             nn.Sigmoid(),
         )
 
@@ -583,7 +608,6 @@ class Micro2d(nn.Module):
         input_shape = x.shape
         x = x.view(x.shape[0], 1, *x.shape[1:])
         x = self.inc(x)  # [B, 64, L]
-        x = self.outc(x)
         x = x.view(*input_shape)
         return x
 
