@@ -436,10 +436,10 @@ class UNet1d(nn.Module):
                 padding=1,
             ),
         )
-        self.down1 = Down1d(base_channel, base_channel, pool="max")
-        self.up1 = Up1d(base_channel, base_channel)
+        self.down1 = Down1d(base_channel, base_channel * 2, pool="max")
+        self.up1 = Up1d(base_channel * 2, base_channel)
         self.outc = nn.Sequential(
-            nn.Conv1d(base_channel, out_channels, kernel_size=3, stride=2, padding=1),
+            nn.Conv1d(base_channel, out_channels, kernel_size=2, stride=2, padding=0),
             nn.Sigmoid(),
         )
 

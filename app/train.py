@@ -102,7 +102,7 @@ class Trainer:
         mae = L1Loss(reduction="none")
         loss0 = mae(torch.log(x), torch.log(y)).sum() / 10000
         loss1 = mse(x, y).sum()
-        return  loss0 + loss1
+        return loss0 + loss1
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
         self.model.eval()
