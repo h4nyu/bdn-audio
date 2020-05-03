@@ -14,6 +14,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
+from torch.optim.lr_scheduler import CosineAnnealingLR as LRScheduler
 from concurrent import futures
 from datetime import datetime
 
@@ -42,7 +43,7 @@ class Trainer:
         self.device = DEVICE
         resolution = (128, 74)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.00001, weight_decay=0.001)  # type: ignore
+        self.optimizer = optim.SGD(self.model.parameters(), lr=0.00001, weight_decay=0.001)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -61,6 +62,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
+        self.scheduler = LRScheduler(self.optimizer, T_max=20, eta_min=0.001)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
@@ -87,6 +89,7 @@ class Trainer:
             x = img[0].detach().cpu().numpy()
             pred = pred[0].detach().cpu().numpy()
             y = label[0].detach().cpu().numpy()
+        self.scheduler.step()
 
         plot_spectrograms(
             [x, pred, y], self.output_dir.joinpath(f"train.png"),
@@ -95,7 +98,8 @@ class Trainer:
         epoch_loss = epoch_loss / count
         epoch = self.epoch
         score = score / count
-        logger.info(f"{epoch=} train {epoch_loss=}")
+        lr = self.scheduler.get_last_lr()
+        logger.info(f"train: {epoch=} {lr=} {epoch_loss=}")
 
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
         mse = MSELoss(reduction="none")

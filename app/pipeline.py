@@ -159,7 +159,7 @@ def submit() -> None:
     submit_dir.mkdir(exist_ok=True)
     fold_preds = [
         Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)()
-        for i in [0, 1, 2]
+        for i in [3]
     ]
     for x, ys in zip(noised_audios, zip(*fold_preds)):
         x_sp = x.spectrogram

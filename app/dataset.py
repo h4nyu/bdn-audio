@@ -41,7 +41,7 @@ class Dataset(_Dataset):
 
     def transform(self, audio: Audio) -> t.Tuple[t.Any, t.Any]:
         raw = audio.spectrogram.copy()
-        noised = Noise(p=0.3, high=0.2, low=0.01)(raw.copy())
+        noised = Noise(p=0.5, high=0.2, low=0.01)(raw.copy())
         _max = np.max(raw)
         scale = _max
         raw = (raw) / scale
