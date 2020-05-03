@@ -422,8 +422,7 @@ class Up2d(nn.Module):
 class UNet1d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        base_channel = 128
-        multiplier = 8
+        base_channel = 128 * 4
 
         self.in_channels = in_channels
         self.before_up = nn.Upsample(scale_factor=2, mode="nearest")

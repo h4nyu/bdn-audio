@@ -231,10 +231,9 @@ class Scaler:
 class Merge:
     def __init__(self, threshold: float) -> None:
         self.threshold = threshold
-        ...
 
     def __call__(self, noise_x: t.Any, denoised_x: t.Any) -> t.Tuple[t.Any, t.Any]:
-        mask = noise_x > self.threshold
+        mask = denoised_x > self.threshold
         res = noise_x.copy()
         res[mask] = denoised_x[mask]
         return res
