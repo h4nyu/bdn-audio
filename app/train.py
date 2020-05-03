@@ -15,6 +15,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
 from torch.optim.lr_scheduler import CosineAnnealingLR as LRScheduler
+from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
 from concurrent import futures
 from datetime import datetime
 
@@ -43,7 +44,7 @@ class Trainer:
         self.device = DEVICE
         resolution = (128, 74)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.SGD(self.model.parameters(), lr=0.00001, weight_decay=0.001)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.001, weight_decay=0.001)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -62,7 +63,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, T_max=20, eta_min=0.001)
+        self.scheduler = LRScheduler(self.optimizer, verbose=True)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
@@ -89,7 +90,6 @@ class Trainer:
             x = img[0].detach().cpu().numpy()
             pred = pred[0].detach().cpu().numpy()
             y = label[0].detach().cpu().numpy()
-        self.scheduler.step()
 
         plot_spectrograms(
             [x, pred, y], self.output_dir.joinpath(f"train.png"),
@@ -98,15 +98,15 @@ class Trainer:
         epoch_loss = epoch_loss / count
         epoch = self.epoch
         score = score / count
-        lr = self.scheduler.get_last_lr()
-        logger.info(f"train: {epoch=} {lr=} {epoch_loss=}")
+        logger.info(f"train: {epoch=} {epoch_loss=}")
 
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
         mse = MSELoss(reduction="none")
         mae = L1Loss(reduction="none")
-        loss0 = mae(torch.log(x), torch.log(y)).sum() / 20000
-        loss1 = mse(x, y).sum()
-        return loss0 + loss1
+        #  loss0 = (mae(torch.log(x), torch.log(y))) / 20000
+        loss1 = mae(x, y).mean()
+        loss2 = mse(torch.max(x), torch.max(y))
+        return loss1 + loss2
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
         self.model.eval()
@@ -157,6 +157,7 @@ class Trainer:
             self.epoch = epoch
             self.train_one_epoch()
             _, score = self.eval_one_epoch()
+            self.scheduler.step(score)
             if score < self.best_score:
                 logger.info('update model')
                 self.save_checkpoint()

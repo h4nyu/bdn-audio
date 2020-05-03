@@ -41,7 +41,7 @@ class Dataset(_Dataset):
 
     def transform(self, audio: Audio) -> t.Tuple[t.Any, t.Any]:
         raw = audio.spectrogram.copy()
-        noised = Noise(p=0.5, high=0.2, low=0.01)(raw.copy())
+        noised = Noise(p=0.3, high=0.2, low=0.01)(raw.copy())
         _max = np.max(raw)
         scale = _max
         raw = (raw) / scale
@@ -50,6 +50,8 @@ class Dataset(_Dataset):
             resized = RandomCrop(height=self.resolution[0], width=self.resolution[1])(
                 image=noised, mask=raw
             )
+            e = ElasticTransform()(image=noised, raw=raw)
+            noised, raw = e['image'], e['raw']
             noised = Blur(p=1, blur_limit=32)(image=noised)["image"]
             noised, raw = resized["image"], resized["mask"]
             noised, raw = HFlip1d(p=0.5)(noised, raw)

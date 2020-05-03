@@ -343,11 +343,11 @@ class Up1d(nn.Module):
         in_channels: int,
         out_channels: int,
         bilinear: bool = False,
-        marge: bool = True,
+        merge: bool = True,
     ) -> None:
         super().__init__()
         # if bilinear, use the normal convolutions to reduce the number of channels
-        self.marge = marge
+        self.merge = merge
         if bilinear:
             self.up = nn.Upsample(scale_factor=2, mode="linear", align_corners=True)
         else:
@@ -355,7 +355,7 @@ class Up1d(nn.Module):
                 in_channels, in_channels, kernel_size=2, stride=2
             )
 
-        if self.marge:
+        if self.merge:
             self.conv1 = ConvBR1d(
                 in_channels + out_channels, out_channels, kernel_size=3, padding=1
             )
@@ -367,7 +367,7 @@ class Up1d(nn.Module):
         x1 = self.up(x1)
         diff = torch.tensor([x2.size()[2] - x1.size()[2]])
         x1 = F.pad(x1, [diff // 2, diff - diff // 2])
-        if self.marge:
+        if self.merge:
             x = torch.cat([x2, x1], dim=1)
         else:
             x = x1
@@ -436,7 +436,7 @@ class UNet1d(nn.Module):
             ),
         )
         self.down1 = Down1d(base_channel, base_channel * 2, pool="max")
-        self.up1 = Up1d(base_channel * 2, base_channel)
+        self.up1 = Up1d(base_channel * 2, base_channel, merge=False)
         self.outc = nn.Sequential(
             nn.Conv1d(base_channel, out_channels, kernel_size=2, stride=2, padding=0),
             nn.Sigmoid(),

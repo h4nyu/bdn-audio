@@ -1,7 +1,7 @@
 from pathlib import Path
 import typing as t
 from .cache import Cache
-from .config import NOISED_TGT_DIR, RAW_TGT_DIR
+from .config import NOISED_TGT_DIR, RAW_TGT_DIR, NOISE_P, NOISE_HIGH
 from .entities import Audios, Audio
 from .preprocess import (
     load_audios,
@@ -33,6 +33,33 @@ wav_dir.mkdir(exist_ok=True)
 
 
 def eda(in_path: str, out_path: str) -> t.Any:
+    executor = futures.ProcessPoolExecutor()
+    audios = load_audios(in_path)
+    out_dir = Path(out_path)
+    out_dir.mkdir(exist_ok=True)
+
+    futures.wait(
+        [
+            executor.submit(
+                show_detail, audio.spectrogram, out_dir.joinpath(f"{audio.id}.png"),
+            )
+            for audio in audios
+        ]
+    )
+    futures.wait(
+        [
+            executor.submit(
+                cache(f"{out_dir}-wav-{audio.id}", save_wav),
+                audio,
+                out_dir.joinpath(f"{audio.id}.wav"),
+            )
+            for audio in audios
+        ]
+    )
+    dataset_summary = summary(audios)
+    logger.info(f"{dataset_summary=}")
+
+def cross_section(in_path: str, out_path: str) -> t.Any:
     executor = futures.ProcessPoolExecutor()
     audios = load_audios(in_path)
     out_dir = Path(out_path)
@@ -115,7 +142,7 @@ def train(fold_idx: int) -> None:
 
 def pre_submit() -> None:
     raw_audios = load_audios(RAW_TGT_DIR)[:30]
-    noise = Noise(p=0.2, high=0.1, low=0.001)
+    noise = Noise(p=NOISE_P, high=NOISE_HIGH, low=0.001)
     noised_audios = [Audio(x.id, noise(x.spectrogram)) for x in raw_audios]
 
     submit_dir = Path("/store/pre_submit")
