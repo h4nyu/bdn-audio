@@ -121,7 +121,7 @@ def pre_submit() -> None:
     submit_dir = Path("/store/pre_submit")
     submit_dir.mkdir(exist_ok=True)
     fold_preds = [
-        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in [0, 1, 2]
+        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in [3]
     ]
     score = 0
     base_score = 0.0

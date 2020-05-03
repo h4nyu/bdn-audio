@@ -42,7 +42,7 @@ class Trainer:
         self.device = DEVICE
         resolution = (128, 74)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.0001, weight_decay=0.001)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.00001, weight_decay=0.001)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -100,7 +100,7 @@ class Trainer:
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
         mse = MSELoss(reduction="none")
         mae = L1Loss(reduction="none")
-        loss0 = mae(torch.log(x), torch.log(y)).sum() / 10000
+        loss0 = mae(torch.log(x), torch.log(y)).sum() / 20000
         loss1 = mse(x, y).sum()
         return loss0 + loss1
 
@@ -153,8 +153,10 @@ class Trainer:
             self.epoch = epoch
             self.train_one_epoch()
             _, score = self.eval_one_epoch()
-            self.save_checkpoint()
-            self.best_score = score
+            if score < self.best_score:
+                logger.info('update model')
+                self.save_checkpoint()
+                self.best_score = score
 
 
 class Predict:
