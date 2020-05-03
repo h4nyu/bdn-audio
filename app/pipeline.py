@@ -103,9 +103,10 @@ def mel_to_audio() -> None:
 
 def train(fold_idx: int) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)
+    noised_audios = load_audios(NOISED_TGT_DIR)
     kf = KFold(n_split=10)
     train, valid = list(kf(raw_audios))[fold_idx]
-    t = Trainer(train, valid, output_dir=Path(f"/store/model-{fold_idx}"))
+    t = Trainer(train + noised_audios, valid, output_dir=Path(f"/store/model-{fold_idx}"))
     t.train(8000)
 
 
@@ -117,7 +118,7 @@ def pre_submit() -> None:
     submit_dir = Path("/store/pre_submit")
     submit_dir.mkdir(exist_ok=True)
     fold_preds = [
-        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in [0]
+        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in [0, 1, 2]
     ]
     score = 0
     base_score = 0.0
@@ -155,7 +156,7 @@ def submit() -> None:
     submit_dir = Path("/store/predict")
     submit_dir.mkdir(exist_ok=True)
     fold_preds = [
-        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in [0]
+        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in [0, 1]
     ]
     for x, ys in zip(noised_audios, zip(*fold_preds)):
         x_sp = x.spectrogram

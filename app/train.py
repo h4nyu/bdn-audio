@@ -23,8 +23,8 @@ from .models import UNet1d as NNModel
 #  from .models import UNet2d as NNModel
 
 #  from .models import LogCoshLoss as Loss
-#  from torch.nn import L1Loss as Loss
-from torch.nn import MSELoss as Loss
+from torch.nn import L1Loss
+from torch.nn import MSELoss
 from logging import getLogger
 import librosa
 from tqdm import tqdm
@@ -40,9 +40,9 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = (128, 64)
+        resolution = (128, 74)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.001)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.0001, weight_decay=0.001)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -98,10 +98,11 @@ class Trainer:
         logger.info(f"{epoch=} train {epoch_loss=}")
 
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
-        #  x = torch.log(x)
-        #  y = torch.log(y)
-        loss_fn = Loss(reduction="none")
-        return (loss_fn(x, y)).sum()
+        mse = MSELoss(reduction="none")
+        mae = L1Loss(reduction="none")
+        loss0 = mae(torch.log(x), torch.log(y)).sum() / 10000
+        loss1 = mse(x, y).sum()
+        return  loss0 + loss1
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
         self.model.eval()

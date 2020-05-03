@@ -438,7 +438,6 @@ class UNet1d(nn.Module):
         )
         self.down1 = Down1d(base_channel, base_channel, pool="max")
         self.up1 = Up1d(base_channel, base_channel)
-        self.dropout = nn.Dropout(p=0.3)
         self.outc = nn.Sequential(
             nn.Conv1d(base_channel, out_channels, kernel_size=3, stride=2, padding=1),
             nn.Sigmoid(),
@@ -449,7 +448,6 @@ class UNet1d(nn.Module):
         n1 = self.inc(x)  # [B, 64, L]
         n = self.down1(n1)  # [B, 128, L//2]
         n = self.up1(n, n1)
-        n = self.dropout(n)
         x = self.outc(n)
         return x
 
