@@ -423,7 +423,7 @@ class UNet1d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
         base_channel = 128
-        multiplier = 4
+        multiplier = 8
 
         self.in_channels = in_channels
         self.before_up = nn.Upsample(scale_factor=2, mode="nearest")
@@ -438,6 +438,7 @@ class UNet1d(nn.Module):
         )
         self.down1 = Down1d(base_channel, base_channel, pool="max")
         self.up1 = Up1d(base_channel, base_channel)
+        self.dropout = nn.Dropout(p=0.3)
         self.outc = nn.Sequential(
             nn.Conv1d(base_channel, out_channels, kernel_size=3, stride=2, padding=1),
             nn.Sigmoid(),
@@ -448,6 +449,7 @@ class UNet1d(nn.Module):
         n1 = self.inc(x)  # [B, 64, L]
         n = self.down1(n1)  # [B, 128, L//2]
         n = self.up1(n, n1)
+        n = self.dropout(n)
         x = self.outc(n)
         return x
 
@@ -459,7 +461,9 @@ class UNet2d(nn.Module):
         multiplier = 1
 
         self.in_channels = in_channels
-        self.before_up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
+        self.before_up = nn.Upsample(
+            scale_factor=2, mode="bilinear", align_corners=True
+        )
         self.inc = nn.Sequential(
             nn.Conv2d(
                 in_channels=1,
@@ -476,7 +480,6 @@ class UNet2d(nn.Module):
             nn.Conv2d(base_channel, 1, kernel_size=3, stride=2, padding=1),
             nn.Sigmoid(),
         )
-
 
     def forward(self, x):  # type: ignore
         input_shape = x.shape
@@ -540,7 +543,9 @@ class Micro2d(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(channels[0], channels[0], kernel_size=3, stride=1, padding=1),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(channels[0], channels[0], kernel_size=5, stride=1, padding=2),
+            nn.ConvTranspose2d(
+                channels[0], channels[0], kernel_size=5, stride=1, padding=2
+            ),
             nn.ReLU(inplace=True),
             nn.ConvTranspose2d(channels[0], channels[0], kernel_size=3, stride=1),
             nn.ReLU(inplace=True),

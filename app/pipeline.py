@@ -101,34 +101,23 @@ def mel_to_audio() -> None:
     print(a)
 
 
-def train(fold_idx:int) -> None:
+def train(fold_idx: int) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)
     kf = KFold(n_split=10)
     train, valid = list(kf(raw_audios))[fold_idx]
     t = Trainer(train, valid, output_dir=Path(f"/store/model-{fold_idx}"))
-    t.train(4000)
+    t.train(8000)
 
 
 def pre_submit() -> None:
-    raw_audios = load_audios(RAW_TGT_DIR)[:10]
-    noise = Noise(p=0.1, high=0.1, low=0.0001)
-    noised_audios = [
-        Audio(
-            x.id,
-            noise(x.spectrogram)
-        )
-        for x
-        in raw_audios
-    ]
+    raw_audios = load_audios(RAW_TGT_DIR)[:30]
+    noise = Noise(p=0.2, high=0.1, low=0.001)
+    noised_audios = [Audio(x.id, noise(x.spectrogram)) for x in raw_audios]
 
     submit_dir = Path("/store/pre_submit")
     submit_dir.mkdir(exist_ok=True)
     fold_preds = [
-        Predict(
-            f"/store/model-{i}/model.pth", noised_audios, submit_dir
-        )()
-        for i
-        in [0]
+        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in [0]
     ]
     score = 0
     base_score = 0.0
@@ -139,33 +128,22 @@ def pre_submit() -> None:
         y_spes = [
             #  i.spectrogram * np.max(x_sp) / np.max(i.spectrogram)
             i.spectrogram
-            for i
-            in ys
+            for i in ys
         ]
 
         y_gt = gt.spectrogram
         merged = sum(y_spes) / len(y_spes)
-        merged = merged * x_sp.mean() / merged.mean()
         print(np.max(merged), np.max(x_sp))
         mse = Mse()
         score += mse(merged, y_gt)
         base_score += mse(x_sp, y_gt)
         plot_spectrograms(
-            [
-                np.log(x_sp),
-                np.log(merged),
-                np.log(y_gt),
-            ],
-            submit_dir.joinpath(f"{x.id}.png")
+            [np.log(x_sp), np.log(merged), np.log(y_gt),],
+            submit_dir.joinpath(f"{x.id}.png"),
         )
 
         plot_spectrograms(
-            [
-                x_sp,
-                merged,
-                x_sp - merged,
-            ],
-            submit_dir.joinpath(f"diff-{x.id}.png")
+            [x_sp, merged, x_sp - merged,], submit_dir.joinpath(f"diff-{x.id}.png")
         )
     #  score = score / count
     #  base_score = base_score / count
@@ -177,38 +155,20 @@ def submit() -> None:
     submit_dir = Path("/store/predict")
     submit_dir.mkdir(exist_ok=True)
     fold_preds = [
-        Predict(
-            f"/store/model-{i}/model.pth", noised_audios, submit_dir
-        )()
-        for i
-        in [3]
+        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in [0]
     ]
     for x, ys in zip(noised_audios, zip(*fold_preds)):
         x_sp = x.spectrogram
-        y_spes = [
-            y.spectrogram
-            for y
-            in ys
-        ]
+        y_spes = [y.spectrogram for y in ys]
         merged = sum(y_spes) / len(y_spes)
         print(np.max(merged), np.max(x_sp))
 
         plot_spectrograms(
-            [
-                np.log(x_sp),
-                np.log(merged),
-            ],
-            submit_dir.joinpath(f"{x.id}.png")
+            [np.log(x_sp), np.log(merged),], submit_dir.joinpath(f"{x.id}.png")
         )
 
         plot_spectrograms(
-            [
-                x_sp,
-                merged,
-                x_sp - merged,
-            ],
-            submit_dir.joinpath(f"diff-{x.id}.png")
+            [x_sp, merged, x_sp - merged,], submit_dir.joinpath(f"diff-{x.id}.png")
         )
-
 
         np.save(file=submit_dir.joinpath(f"tgt_{x.id}.npy"), arr=merged)

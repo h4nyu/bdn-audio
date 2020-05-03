@@ -107,8 +107,8 @@ class Noise:
         mask = np.random.choice(
             [False, True], size=spectrogram.shape, p=[self.p, (1 - self.p)]
         )
-        fill_values = (
-            np.logical_not(mask) * np.random.uniform(high=self.high, low=self.low, size=spectrogram.shape)
+        fill_values = np.logical_not(mask) * np.random.uniform(
+            high=self.high, low=self.low, size=spectrogram.shape
         )
         masked = spectrogram * (mask + fill_values)
         return masked
@@ -144,8 +144,8 @@ class RandomCrop2d:
         if width > 0:
             start_w = np.random.randint(low=0, high=width)
         return (
-            x[start_h : start_h + self.h,  start_w : start_w + self.w,],
-            y[start_h : start_h + self.h, start_w : start_w + self.w:],
+            x[start_h : start_h + self.h, start_w : start_w + self.w,],
+            y[start_h : start_h + self.h, start_w : start_w + self.w :],
         )
 
 
@@ -161,6 +161,7 @@ class HFlip1d:
             return x[:, ::-1].copy(), y[:, ::-1].copy()
         else:
             return x, y
+
 
 class VFlip1d:
     def __init__(self, p: float) -> None:

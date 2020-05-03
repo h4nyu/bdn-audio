@@ -18,6 +18,7 @@ from concurrent import futures
 from datetime import datetime
 
 from .models import UNet1d as NNModel
+
 #  from .models import UNet2d as NNModel
 #  from .models import UNet2d as NNModel
 
@@ -39,9 +40,9 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = (128, 32)
+        resolution = (128, 64)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.0001)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.001)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -74,7 +75,7 @@ class Trainer:
         score = 0.0
         count = 0
         base_score = 0.0
-        for img, label, _, _, _ in tqdm(self.data_loaders["train"]):
+        for img, label, _, in tqdm(self.data_loaders["train"]):
             count = count + 1
             img, label = img.to(self.device), label.to(self.device)
             pred = self.model(img)
@@ -94,10 +95,11 @@ class Trainer:
         epoch_loss = epoch_loss / count
         epoch = self.epoch
         score = score / count
-        logger.info(
-            f"{epoch=} train {epoch_loss=}"
-        )
-    def objective(self, x:t.Any, y:t.Any) -> t.Any:
+        logger.info(f"{epoch=} train {epoch_loss=}")
+
+    def objective(self, x: t.Any, y: t.Any) -> t.Any:
+        #  x = torch.log(x)
+        #  y = torch.log(y)
         loss_fn = Loss(reduction="none")
         return (loss_fn(x, y)).sum()
 
@@ -108,7 +110,7 @@ class Trainer:
         score = 0.0
         base_score = 0.0
         count = 0
-        for img, label, scales, _mins, _ in tqdm(self.data_loaders["test"]):
+        for img, label, scales, in tqdm(self.data_loaders["test"]):
             img, label = img.to(self.device), label.to(self.device)
             count += 1
             with torch.no_grad():
@@ -116,17 +118,14 @@ class Trainer:
                 loss = self.objective(pred, label)
                 epoch_loss += loss.item()
                 scale = scales[0].item()
-                _min = _mins[0].item()
                 x, pred, y = [
-                    i[0].detach().cpu().numpy() * scale + _min
-                    for i
-                    in [img, pred, label]
+                    i[0].detach().cpu().numpy() * scale for i in [img, pred, label]
                 ]
                 score += mean_squared_error(pred, y,)
                 base_score += mean_squared_error(x, y,)
 
         plot_spectrograms(
-            [i for i in [x, pred, y]], self.output_dir.joinpath(f"eval.png"),
+            [np.log(i) for i in [x, pred, y]], self.output_dir.joinpath(f"eval.png"),
         )
         epoch_loss = epoch_loss / count
         score = score / count
@@ -149,7 +148,7 @@ class Trainer:
         torch.save(self.model.state_dict(), self.output_dir.joinpath(f"model.pth"))
 
     def train(self, max_epochs: int) -> None:
-        for epoch in range(self.epoch, max_epochs + 1):
+        for epoch in range(max_epochs + 1):
             self.epoch = epoch
             self.train_one_epoch()
             _, score = self.eval_one_epoch()
@@ -175,14 +174,13 @@ class Predict:
         predict_audios: Audios = []
         hflip = HFlip1d(p=1)
         with torch.no_grad():
-            for x, hfliped, ids, scales, _mins in self.data_loader:
+            for x, hfliped, ids, scales in self.data_loader:
                 id = ids[0]
                 scale = scales[0].item()
-                _min = _mins[0].item()
                 x, hfliped = x.to(DEVICE), hfliped.to(DEVICE)
                 y = self.model(x)[0].cpu().numpy()
                 h_y = self.model(hfliped)[0].cpu().numpy()
                 y = (y + hflip(h_y, h_y)[0]) / 2
-                y = np.exp(y * scale + _min)
+                y = y * scale
                 predict_audios.append(Audio(id, y))
         return predict_audios
