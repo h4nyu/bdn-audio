@@ -42,9 +42,9 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = (128, 74)
+        resolution = (128, 16)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.001, weight_decay=0.001)  # type: ignore
+        self.optimizer = optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -63,7 +63,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, verbose=True)
+        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=20)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
@@ -103,10 +103,8 @@ class Trainer:
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
         mse = MSELoss(reduction="none")
         mae = L1Loss(reduction="none")
-        #  loss0 = (mae(torch.log(x), torch.log(y))) / 20000
-        loss1 = mae(x, y).mean()
-        loss2 = mse(torch.max(x), torch.max(y))
-        return loss1 + loss2
+        loss1 = mse(x, y).mean()
+        return loss1
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
         self.model.eval()

@@ -425,9 +425,9 @@ class UNet1d(nn.Module):
         base_channel = 128 * 4
 
         self.in_channels = in_channels
-        self.before_up = nn.Upsample(scale_factor=2, mode="nearest")
+        self.before_up = nn.Upsample(scale_factor=2, mode="linear", align_corners=True)
         self.inc = nn.Sequential(
-            nn.Conv1d(
+            ConvBR1d(
                 in_channels=128,
                 out_channels=base_channel,
                 kernel_size=3,
@@ -436,18 +436,19 @@ class UNet1d(nn.Module):
             ),
         )
         self.down1 = Down1d(base_channel, base_channel * 2, pool="max")
-        self.up1 = Up1d(base_channel * 2, base_channel, merge=False)
+        self.up1 = Up1d(base_channel * 2, base_channel, merge=True) # 0
         self.outc = nn.Sequential(
             nn.Conv1d(base_channel, out_channels, kernel_size=2, stride=2, padding=0),
             nn.Sigmoid(),
         )
 
     def forward(self, x):  # type: ignore
-        x = self.before_up(x)
-        n1 = self.inc(x)  # [B, 64, L]
+        n = self.before_up(x)
+        n1 = self.inc(n)  # [B, 64, L]
         n = self.down1(n1)  # [B, 128, L//2]
         n = self.up1(n, n1)
-        x = self.outc(n)
+        n = self.outc(n)
+        x = n
         return x
 
 

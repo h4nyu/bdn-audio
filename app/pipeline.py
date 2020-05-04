@@ -1,7 +1,7 @@
 from pathlib import Path
 import typing as t
 from .cache import Cache
-from .config import NOISED_TGT_DIR, RAW_TGT_DIR, NOISE_P, NOISE_HIGH
+from .config import NOISED_TGT_DIR, RAW_TGT_DIR, NOISE_P, NOISE_HIGH, NOISE_LOW
 from .entities import Audios, Audio
 from .preprocess import (
     load_audios,
@@ -140,15 +140,15 @@ def train(fold_idx: int) -> None:
     t.train(8000)
 
 
-def pre_submit() -> None:
+def pre_submit(fold_idx:int) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)[:30]
-    noise = Noise(p=NOISE_P, high=NOISE_HIGH, low=0.001)
+    noise = Noise(p=NOISE_P, high=NOISE_HIGH, low=NOISE_LOW)
     noised_audios = [Audio(x.id, noise(x.spectrogram)) for x in raw_audios]
 
     submit_dir = Path("/store/pre_submit")
     submit_dir.mkdir(exist_ok=True)
     fold_preds = [
-        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in [3]
+        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in [fold_idx]
     ]
     score = 0
     base_score = 0.0

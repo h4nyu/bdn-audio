@@ -11,7 +11,7 @@ from .preprocess import (
     RandomScale,
     RandomCrop2d,
 )
-from .config import VALUE_RANGE
+from .config import NOISE_P, NOISE_HIGH, NOISE_LOW
 from sklearn.preprocessing import MinMaxScaler
 from albumentations.augmentations.transforms import (
     Resize,
@@ -19,6 +19,7 @@ from albumentations.augmentations.transforms import (
     RandomGridShuffle,
     ElasticTransform,
     Blur,
+    GaussianBlur,
 )
 import librosa
 
@@ -41,7 +42,7 @@ class Dataset(_Dataset):
 
     def transform(self, audio: Audio) -> t.Tuple[t.Any, t.Any]:
         raw = audio.spectrogram.copy()
-        noised = Noise(p=0.3, high=0.2, low=0.01)(raw.copy())
+        noised = Noise(p=NOISE_P, high=NOISE_HIGH, low=NOISE_LOW)(raw.copy())
         _max = np.max(raw)
         scale = _max
         raw = (raw) / scale
@@ -52,7 +53,7 @@ class Dataset(_Dataset):
             )
             e = ElasticTransform()(image=noised, raw=raw)
             noised, raw = e['image'], e['raw']
-            noised = Blur(p=1, blur_limit=32)(image=noised)["image"]
+            noised = GaussianBlur(p=1, blur_limit=32)(image=noised)["image"]
             noised, raw = resized["image"], resized["mask"]
             noised, raw = HFlip1d(p=0.5)(noised, raw)
         return noised, raw, scale
