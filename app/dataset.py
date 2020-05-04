@@ -20,6 +20,7 @@ from albumentations.augmentations.transforms import (
     ElasticTransform,
     Blur,
     GaussianBlur,
+    GridDistortion,
 )
 import librosa
 
@@ -51,10 +52,9 @@ class Dataset(_Dataset):
             resized = RandomCrop(height=self.resolution[0], width=self.resolution[1])(
                 image=noised, mask=raw
             )
-            e = ElasticTransform()(image=noised, raw=raw)
-            noised, raw = e['image'], e['raw']
-            noised = GaussianBlur(p=1, blur_limit=32)(image=noised)["image"]
             noised, raw = resized["image"], resized["mask"]
+            #  g = GridDistortion()(image=noised, raw=raw)
+            #  noised, raw = g['image'], g['raw']
             noised, raw = HFlip1d(p=0.5)(noised, raw)
         return noised, raw, scale
 

@@ -425,7 +425,7 @@ class UNet1d(nn.Module):
         base_channel = 128 * 4
 
         self.in_channels = in_channels
-        self.before_up = nn.Upsample(scale_factor=2, mode="linear", align_corners=True)
+        self.before_up = nn.Upsample(scale_factor=2, mode="nearest")
         self.inc = nn.Sequential(
             ConvBR1d(
                 in_channels=128,
@@ -437,6 +437,7 @@ class UNet1d(nn.Module):
         )
         self.down1 = Down1d(base_channel, base_channel * 2, pool="max")
         self.up1 = Up1d(base_channel * 2, base_channel, merge=True) # 0
+        self.dropout = nn.Dropout(p=0.2)
         self.outc = nn.Sequential(
             nn.Conv1d(base_channel, out_channels, kernel_size=2, stride=2, padding=0),
             nn.Sigmoid(),
@@ -446,6 +447,7 @@ class UNet1d(nn.Module):
         n = self.before_up(x)
         n1 = self.inc(n)  # [B, 64, L]
         n = self.down1(n1)  # [B, 128, L//2]
+        n = self.dropout(n)
         n = self.up1(n, n1)
         n = self.outc(n)
         x = n
@@ -460,10 +462,10 @@ class UNet2d(nn.Module):
 
         self.in_channels = in_channels
         self.before_up = nn.Upsample(
-            scale_factor=2, mode="bilinear", align_corners=True
+            scale_factor=2, mode="nearest"
         )
         self.inc = nn.Sequential(
-            nn.Conv2d(
+            ConvBR2d(
                 in_channels=1,
                 out_channels=base_channel,
                 kernel_size=3,
@@ -472,7 +474,7 @@ class UNet2d(nn.Module):
             ),
         )
         self.down1 = Down2d(base_channel, base_channel * 2, pool="max")
-        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=False)
+        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=True)
 
         self.outc = nn.Sequential(
             nn.Conv2d(base_channel, 1, kernel_size=3, stride=2, padding=1),
@@ -488,7 +490,6 @@ class UNet2d(nn.Module):
         n = self.up1(n, n1)
         x = self.outc(n)
         x = x.view(*input_shape)
-        x = torch.abs(x)
         return x
 
 

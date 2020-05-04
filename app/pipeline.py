@@ -1,7 +1,8 @@
 from pathlib import Path
 import typing as t
 from .cache import Cache
-from .config import NOISED_TGT_DIR, RAW_TGT_DIR, NOISE_P, NOISE_HIGH, NOISE_LOW
+from .config import NOISED_TGT_DIR, RAW_TGT_DIR, NOISE_P, NOISE_HIGH, NOISE_LOW, NOISE_FLOOR
+from . import config
 from .entities import Audios, Audio
 from .preprocess import (
     load_audios,
@@ -164,7 +165,7 @@ def pre_submit(fold_idx:int) -> None:
 
         y_gt = gt.spectrogram
         merged = sum(y_spes) / len(y_spes)
-        merged = Merge(0.01)(x_sp, merged)
+        merged = Merge(NOISE_FLOOR)(x_sp, merged)
         print(np.max(merged), np.max(x_sp))
         mse = Mse()
         score += mse(merged, y_gt)
@@ -192,7 +193,7 @@ def submit() -> None:
         x_sp = x.spectrogram
         y_spes = [y.spectrogram for y in ys]
         merged = sum(y_spes) / len(y_spes)
-        merged = Merge(0.01)(x_sp, merged)
+        merged = Merge(NOISE_FLOOR)(x_sp, merged)
         print(np.max(merged), np.max(x_sp))
 
         plot_spectrograms(

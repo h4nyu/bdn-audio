@@ -15,11 +15,11 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
 from torch.optim.lr_scheduler import CosineAnnealingLR as LRScheduler
-from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
+#  from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
 from concurrent import futures
 from datetime import datetime
 
-from .models import UNet1d as NNModel
+from .models import UNet2d as NNModel
 
 #  from .models import UNet2d as NNModel
 #  from .models import UNet2d as NNModel
@@ -42,15 +42,15 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = (128, 16)
+        resolution = (32, 32)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.SGD(self.model.parameters(), lr=0.001, momentum=0.9)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.0001)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
                 Dataset(train_data + train_data, resolution=resolution, mode="train",),
                 shuffle=True,
-                batch_size=16,
+                batch_size=32,
                 drop_last=True,
             ),
             "test": DataLoader(
@@ -63,7 +63,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=20)
+        self.scheduler = LRScheduler(self.optimizer, T_max=10, eta_min=1e-6)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
@@ -92,7 +92,7 @@ class Trainer:
             y = label[0].detach().cpu().numpy()
 
         plot_spectrograms(
-            [x, pred, y], self.output_dir.joinpath(f"train.png"),
+            [np.log(i) for i in [x, pred, y]], self.output_dir.joinpath(f"train.png"),
         )
 
         epoch_loss = epoch_loss / count
@@ -155,7 +155,7 @@ class Trainer:
             self.epoch = epoch
             self.train_one_epoch()
             _, score = self.eval_one_epoch()
-            self.scheduler.step(score)
+            self.scheduler.step()
             if score < self.best_score:
                 logger.info('update model')
                 self.save_checkpoint()
