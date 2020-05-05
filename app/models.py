@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
+#  import torch.nn.LeakyReLU as Activation
 
 
 class LogCoshLoss(torch.nn.Module):
@@ -86,7 +87,7 @@ class CSE2d(nn.Module):
         self.se = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(in_channels, in_channels // reduction, 1),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Conv2d(in_channels // reduction, in_channels, 1),
             nn.Sigmoid(),
         )
@@ -156,12 +157,12 @@ class SENextBottleneck2d(nn.Module):
     ) -> None:
         super().__init__()
         mid_channels = out_channels // reduction
-        self.conv1 = ConvBR2d(in_channels, mid_channels, 1, 0, 1,)
-        self.conv2 = ConvBR2d(mid_channels, mid_channels, 3, 1, 1)
-        self.conv3 = ConvBR2d(mid_channels, out_channels, 1, 0, 1, is_activation=False)
+        self.conv1 = ConvBR2d(in_channels, out_channels, 3, 1, 1,)
+        self.conv2 = ConvBR2d(out_channels, out_channels, 3, 1, 1)
         self.se = CSE2d(out_channels, reduction)
         self.stride = stride
         self.is_shortcut = is_shortcut
+        self.activation = nn.LeakyReLU(inplace=True)
         if self.is_shortcut:
             self.shortcut = ConvBR2d(
                 in_channels, out_channels, 1, 0, 1, is_activation=False
@@ -177,7 +178,6 @@ class SENextBottleneck2d(nn.Module):
         s = self.conv2(s)
         if self.stride > 1:
             s = self.pool(s)
-        s = self.conv3(s)
         s = self.se(s)
         #
         if self.is_shortcut:
@@ -185,7 +185,7 @@ class SENextBottleneck2d(nn.Module):
                 x = F.avg_pool2d(x, self.stride, self.stride)  # avg
             x = self.shortcut(x)
         x = x + s
-        x = F.relu(x, inplace=True)
+        x = self.activation(x)
         return x
 
 

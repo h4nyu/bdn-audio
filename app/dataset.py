@@ -56,7 +56,7 @@ class Dataset(_Dataset):
             #  g = GridDistortion()(image=noised, raw=raw)
             #  noised, raw = g['image'], g['raw']
             noised, raw = HFlip1d(p=0.5)(noised, raw)
-            #  noised, raw = VFlip1d(p=0.5)(noised, raw)
+            noised, raw = VFlip1d(p=0.5)(noised, raw)
         return noised, raw, scale
 
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, t.Any, t.Any]:
@@ -77,5 +77,6 @@ class PredictDataset(_Dataset):
         _max = np.max(sp)
         scale = _max
         sp = (sp) / scale
-        hfloped, _ = HFlip1d(p=1)(sp, sp)
-        return sp, hfloped, row.id, scale
+        hfliped, _ = HFlip1d(p=1)(sp, sp)
+        vfliped, _ = VFlip1d(p=1)(sp, sp)
+        return sp, hfliped, vfliped, row.id, scale

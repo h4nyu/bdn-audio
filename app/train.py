@@ -5,7 +5,7 @@ import os
 from .entities import Audios, Audio
 from .dataset import Dataset, PredictDataset
 from .config import VALUE_RANGE
-from .preprocess import HFlip1d
+from .preprocess import HFlip1d, VFlip1d
 import os
 import torch
 from pathlib import Path
@@ -19,9 +19,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
 from concurrent import futures
 from datetime import datetime
 
-from .models import UNet1d as NNModel
+#  from .models import UNet1d as NNModel
 
-#  from .models import UNet2d as NNModel
+from .models import UNet2d as NNModel
 #  from .models import UNet2d as NNModel
 
 #  from .models import LogCoshLoss as Loss
@@ -42,7 +42,7 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = (128, 32)
+        resolution = (96, 32)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
         self.optimizer = optim.AdamW(self.model.parameters(), lr=0.01)  # type: ignore
         self.epoch = 1
@@ -63,7 +63,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=20)
+        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=15)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
@@ -179,14 +179,16 @@ class Predict:
         self.model.eval()
         predict_audios: Audios = []
         hflip = HFlip1d(p=1)
+        vflip = VFlip1d(p=1)
         with torch.no_grad():
-            for x, hfliped, ids, scales in self.data_loader:
+            for x, hfliped, vfliped, ids, scales in self.data_loader:
                 id = ids[0]
                 scale = scales[0].item()
-                x, hfliped = x.to(DEVICE), hfliped.to(DEVICE)
+                x, hfliped, vfliped = x.to(DEVICE), hfliped.to(DEVICE), vfliped.to(DEVICE)
                 y = self.model(x)[0].cpu().numpy()
                 h_y = self.model(hfliped)[0].cpu().numpy()
-                y = (y + hflip(h_y, h_y)[0]) / 2
+                v_y = self.model(vfliped)[0].cpu().numpy()
+                y = (y + hflip(h_y, h_y)[0] + vflip(v_y, v_y)[0]) / 3
                 y = y * scale
                 predict_audios.append(Audio(id, y))
         return predict_audios
