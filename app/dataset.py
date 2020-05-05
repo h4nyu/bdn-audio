@@ -2,6 +2,7 @@ import numpy as np
 import typing as t
 from torch.utils.data import Dataset as _Dataset
 from .entities import Audios, Audio
+from .config import MAX_POWER
 from .preprocess import (
     Noise,
     RandomCrop1d,
@@ -45,7 +46,7 @@ class Dataset(_Dataset):
         raw = audio.spectrogram.copy()
         noised = Noise(p=NOISE_P, high=NOISE_HIGH, low=NOISE_LOW)(raw.copy())
         _max = np.max(raw)
-        scale = _max
+        scale = MAX_POWER
         raw = (raw) / scale
         noised = (noised) / scale
         if self.mode == "train":
@@ -75,7 +76,7 @@ class PredictDataset(_Dataset):
         row = self.audios[idx]
         sp = row.spectrogram
         _max = np.max(sp)
-        scale = _max
+        scale = MAX_POWER
         sp = (sp) / scale
         hfliped, _ = HFlip1d(p=1)(sp, sp)
         vfliped, _ = VFlip1d(p=1)(sp, sp)

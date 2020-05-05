@@ -63,7 +63,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=15)
+        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=10, eps=1e-7, factor=0.5)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
