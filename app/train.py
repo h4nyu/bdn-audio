@@ -4,7 +4,6 @@ import json
 import os
 from .entities import Audios, Audio
 from .dataset import Dataset, PredictDataset
-from .config import VALUE_RANGE
 from .preprocess import HFlip1d, VFlip1d
 import os
 import torch
