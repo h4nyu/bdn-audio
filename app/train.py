@@ -188,7 +188,7 @@ class Predict:
                 y = self.model(x)[0].cpu().numpy()
                 h_y = self.model(hfliped)[0].cpu().numpy()
                 v_y = self.model(vfliped)[0].cpu().numpy()
-                y = (y + hflip(h_y, h_y)[0] + vflip(v_y, v_y)[0]) / 3
+                y = np.max(np.stack([y, hflip(h_y, h_y)[0], vflip(v_y, v_y)[0]]), axis=0)
                 y = y * scale
                 predict_audios.append(Audio(id, y))
         return predict_audios
