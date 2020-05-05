@@ -122,9 +122,9 @@ class CSE1d(nn.Module):
         self.se = nn.Sequential(
             nn.AdaptiveAvgPool1d(1),
             nn.Conv1d(in_channels, in_channels // reduction, 1),
-            nn.ReLU(inplace=True),
+            nn.LeakyReLU(inplace=True),
             nn.Conv1d(in_channels // reduction, in_channels, 1),
-            nn.ReLU(inplace=True),
+            nn.Sigmoid(),
         )
 
     def forward(self, x):  # type: ignore
@@ -155,7 +155,7 @@ class SENextBottleneck2d(nn.Module):
         is_shortcut: bool = True,
     ) -> None:
         super().__init__()
-        mid_channels = out_channels // 2
+        mid_channels = out_channels // reduction
         self.conv1 = ConvBR2d(in_channels, mid_channels, 1, 0, 1,)
         self.conv2 = ConvBR2d(mid_channels, mid_channels, 3, 1, 1)
         self.conv3 = ConvBR2d(mid_channels, out_channels, 1, 0, 1, is_activation=False)
@@ -197,16 +197,14 @@ class SENextBottleneck1d(nn.Module):
         in_channels: int,
         out_channels: int,
         stride: int = 1,
-        groups: int = 32,
-        reduction: int = 16,
+        reduction: int = 8,
         pool: t.Literal["max", "avg"] = "max",
         is_shortcut: bool = False,
     ) -> None:
         super().__init__()
-        mid_channels = groups * (out_channels // 2 // groups)
-        self.conv1 = ConvBR1d(in_channels, mid_channels, 1, 0, 1,)
-        self.conv2 = ConvBR1d(mid_channels, mid_channels, 3, 1, 1, groups=groups)
-        self.conv3 = ConvBR1d(mid_channels, out_channels, 1, 0, 1, is_activation=False)
+        mid_channels = out_channels // reduction
+        self.conv1 = ConvBR1d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.conv2 = ConvBR1d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
         self.se = CSE1d(out_channels, reduction)
         self.stride = stride
         self.is_shortcut = is_shortcut
@@ -226,7 +224,6 @@ class SENextBottleneck1d(nn.Module):
         s = self.conv2(s)
         if self.stride > 1:
             s = self.pool(s)
-        s = self.conv3(s)
         s = self.se(s)
         if self.is_shortcut:
             if self.stride > 1:
@@ -234,7 +231,6 @@ class SENextBottleneck1d(nn.Module):
             x = self.shortcut(x)
         x = x + s
         x = self.activation(x)
-
         return x
 
 
@@ -247,7 +243,6 @@ class ConvBR1d(nn.Module):
         padding: int = 0,
         dilation: int = 1,
         stride: int = 1,
-        groups: int = 1,
         is_activation: bool = True,
     ) -> None:
         super().__init__()
@@ -258,14 +253,13 @@ class ConvBR1d(nn.Module):
             padding=padding,
             dilation=dilation,
             stride=stride,
-            groups=groups,
             bias=True,
         )
         self.bn = nn.BatchNorm1d(out_channels)
         self.is_activation = is_activation
 
         if is_activation:
-            self.activation = nn.ReLU(inplace=True)
+            self.activation = nn.LeakyReLU(inplace=True)
 
     def forward(self, x):  # type: ignore
         x = self.bn(self.conv(x))
@@ -289,12 +283,6 @@ class Down1d(nn.Module):
                 stride=2,
                 is_shortcut=True,
                 pool=pool,
-            ),
-            SENextBottleneck1d(
-                in_channels=out_channels,
-                out_channels=out_channels,
-                stride=1,
-                is_shortcut=False,
             ),
         )
 
@@ -413,35 +401,47 @@ class Up2d(nn.Module):
 class UNet1d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        base_channel = 128 * 4
+        base_channel = 128 * 1
 
-        self.in_channels = in_channels
-        self.before_up = nn.Upsample(scale_factor=2, mode="nearest")
         self.inc = nn.Sequential(
-            ConvBR1d(
-                in_channels=128,
+            nn.Conv1d(
+                in_channels=in_channels,
                 out_channels=base_channel,
                 kernel_size=3,
                 stride=1,
-                padding=1,
+                padding=2,
             ),
         )
+
+        self.in_channels = in_channels
         self.down1 = Down1d(base_channel, base_channel * 2, pool="max")
-        self.up1 = Up1d(base_channel * 2, base_channel, merge=True) # 0
-        self.dropout = nn.Dropout(p=0.2)
+        self.down2 = Down1d(base_channel * 2, base_channel * 4, pool="max")
+        self.down3 = Down1d(base_channel * 4, base_channel * 8, pool="max")
+        self.down4 = Down1d(base_channel * 8, base_channel * 16, pool="max")
+        self.center = SENextBottleneck1d(base_channel * 16, base_channel * 16)
+        self.up4 = Up1d(base_channel * 16, base_channel * 8, bilinear=False, merge=True)
+        self.up3 = Up1d(base_channel * 8, base_channel * 4, bilinear=False, merge=True)
+        self.up2 = Up1d(base_channel * 4, base_channel * 2, bilinear=False, merge=False)
+        self.up1 = Up1d(base_channel * 2, base_channel, bilinear=False, merge=False)
+
         self.outc = nn.Sequential(
-            nn.Conv1d(base_channel, out_channels, kernel_size=2, stride=2, padding=0),
+            SENextBottleneck1d(base_channel, base_channel, stride=1),
+            nn.Conv1d(base_channel, out_channels, kernel_size=3, stride=1, padding=0),
             nn.Sigmoid(),
         )
 
     def forward(self, x):  # type: ignore
-        n = self.before_up(x)
-        n1 = self.inc(n)  # [B, 64, L]
-        n = self.down1(n1)  # [B, 128, L//2]
-        n = self.dropout(n)
-        n = self.up1(n, n1)
-        n = self.outc(n)
-        x = n
+        n0 = self.inc(x)  # [B, 64, L]
+        n1 = self.down1(n0)  # [B, 128, L//2]
+        n2 = self.down2(n1)  # [B, 128, L//2]
+        n3 = self.down3(n2)  # [B, 128, L//2]
+        n4 = self.down4(n3)  # [B, 128, L//2]
+        n4 = self.center(n4) # [B, 128, L//
+        n = self.up4(n4, n3)
+        n = self.up3(n3, n2)
+        n = self.up2(n2, n1)
+        n = self.up1(n1, n0)
+        x = self.outc(n)
         return x
 
 

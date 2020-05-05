@@ -19,7 +19,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
 from concurrent import futures
 from datetime import datetime
 
-from .models import UNet2d as NNModel
+from .models import UNet1d as NNModel
 
 #  from .models import UNet2d as NNModel
 #  from .models import UNet2d as NNModel
@@ -42,15 +42,15 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = (128, 16)
+        resolution = (128, 32)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
         self.optimizer = optim.AdamW(self.model.parameters(), lr=0.01)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                Dataset(train_data + train_data + train_data + train_data, resolution=resolution, mode="train",),
+                Dataset(train_data * 5, resolution=resolution, mode="train",),
                 shuffle=True,
-                batch_size=32,
+                batch_size=16,
                 drop_last=True,
             ),
             "test": DataLoader(
@@ -63,7 +63,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, verbose=True)
+        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=20)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
