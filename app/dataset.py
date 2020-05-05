@@ -56,6 +56,7 @@ class Dataset(_Dataset):
             #  g = GridDistortion()(image=noised, raw=raw)
             #  noised, raw = g['image'], g['raw']
             noised, raw = HFlip1d(p=0.5)(noised, raw)
+            #  noised, raw = VFlip1d(p=0.5)(noised, raw)
         return noised, raw, scale
 
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, t.Any, t.Any]:

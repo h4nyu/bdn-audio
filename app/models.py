@@ -45,7 +45,6 @@ class ConvBR2d(nn.Module):
         padding: int = 0,
         dilation: int = 1,
         stride: int = 1,
-        groups: int = 1,
         is_activation: bool = True,
     ) -> None:
         super().__init__()
@@ -56,7 +55,6 @@ class ConvBR2d(nn.Module):
             padding=padding,
             dilation=dilation,
             stride=stride,
-            groups=groups,
             bias=False,
         )
         self.bn = nn.BatchNorm2d(out_channels)
@@ -152,15 +150,14 @@ class SENextBottleneck2d(nn.Module):
         in_channels: int,
         out_channels: int,
         stride: int = 1,
-        groups: int = 32,
         reduction: int = 16,
         pool: t.Literal["max", "avg"] = "max",
         is_shortcut: bool = True,
     ) -> None:
         super().__init__()
-        mid_channels = groups * (out_channels // 2 // groups)
+        mid_channels = out_channels // 2
         self.conv1 = ConvBR2d(in_channels, mid_channels, 1, 0, 1,)
-        self.conv2 = ConvBR2d(mid_channels, mid_channels, 3, 1, 1, groups=groups)
+        self.conv2 = ConvBR2d(mid_channels, mid_channels, 3, 1, 1)
         self.conv3 = ConvBR2d(mid_channels, out_channels, 1, 0, 1, is_activation=False)
         self.se = CSE2d(out_channels, reduction)
         self.stride = stride
@@ -321,12 +318,6 @@ class Down2d(nn.Module):
                 is_shortcut=True,
                 pool=pool,
             ),
-            SENextBottleneck2d(
-                in_channels=out_channels,
-                out_channels=out_channels,
-                stride=1,
-                is_shortcut=False,
-            ),
         )
 
     def forward(self, x):  # type: ignore
@@ -457,37 +448,47 @@ class UNet1d(nn.Module):
 class UNet2d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        base_channel = 128
-        multiplier = 1
+        base_channel = 16
 
         self.in_channels = in_channels
-        self.before_up = nn.Upsample(
-            scale_factor=2, mode="nearest"
-        )
         self.inc = nn.Sequential(
-            ConvBR2d(
+            nn.Conv2d(
                 in_channels=1,
                 out_channels=base_channel,
                 kernel_size=3,
                 stride=1,
-                padding=1,
+                padding=2,
             ),
         )
         self.down1 = Down2d(base_channel, base_channel * 2, pool="max")
-        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=True)
+        self.down2 = Down2d(base_channel * 2, base_channel * 4, pool="max")
+        self.down3 = Down2d(base_channel * 4, base_channel * 8, pool="max")
+        self.down4 = Down2d(base_channel * 8, base_channel * 16, pool="max")
+        self.center = SENextBottleneck2d(base_channel * 16, base_channel * 16, pool="avg")
+        self.up4 = Up2d(base_channel * 16, base_channel * 8, bilinear=False, merge=True)
+        self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=False, merge=True)
+        self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=False, merge=False)
+        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=False)
 
         self.outc = nn.Sequential(
-            nn.Conv2d(base_channel, 1, kernel_size=3, stride=2, padding=1),
+            SENextBottleneck2d(base_channel, base_channel, stride=1),
+            nn.Conv2d(base_channel, 1, kernel_size=3, stride=1, padding=0),
             nn.Sigmoid(),
         )
 
     def forward(self, x):  # type: ignore
         input_shape = x.shape
         x = x.view(x.shape[0], 1, *x.shape[1:])
-        x = self.before_up(x)
-        n1 = self.inc(x)  # [B, 64, L]
-        n = self.down1(n1)  # [B, 128, L//2]
-        n = self.up1(n, n1)
+        n0 = self.inc(x)  # [B, 64, L]
+        n1 = self.down1(n0)  # [B, 128, L//2]
+        n2 = self.down2(n1)  # [B, 128, L//2]
+        n3 = self.down3(n2)  # [B, 128, L//2]
+        n4 = self.down4(n3)  # [B, 128, L//2]
+        n4 = self.center(n4) # [B, 128, L//
+        n = self.up4(n4, n3)
+        n = self.up3(n3, n2)
+        n = self.up2(n2, n1)
+        n = self.up1(n1, n0)
         x = self.outc(n)
         x = x.view(*input_shape)
         return x

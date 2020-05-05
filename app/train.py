@@ -14,8 +14,8 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
-from torch.optim.lr_scheduler import CosineAnnealingLR as LRScheduler
-#  from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
+#  from torch.optim.lr_scheduler import CosineAnnealingLR as LRScheduler
+from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
 from concurrent import futures
 from datetime import datetime
 
@@ -42,13 +42,13 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = (32, 32)
+        resolution = (128, 16)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.0001)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.01)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                Dataset(train_data + train_data, resolution=resolution, mode="train",),
+                Dataset(train_data + train_data + train_data + train_data, resolution=resolution, mode="train",),
                 shuffle=True,
                 batch_size=32,
                 drop_last=True,
@@ -63,7 +63,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, T_max=10, eta_min=1e-6)
+        self.scheduler = LRScheduler(self.optimizer, verbose=True)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
@@ -98,7 +98,7 @@ class Trainer:
         epoch_loss = epoch_loss / count
         epoch = self.epoch
         score = score / count
-        logger.info(f"train: {epoch=} {epoch_loss=}")
+        return epoch_loss
 
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
         mse = MSELoss(reduction="none")
@@ -134,8 +134,7 @@ class Trainer:
         score = score / count
         base_score = base_score / count
         score_diff = base_score - score
-        logger.info(f"{epoch=} test {epoch_loss=} {base_score=} {score=} {score_diff=}")
-        return epoch_loss, score
+        return epoch_loss, base_score, score
 
     def load_checkpoint(self,) -> None:
         with open(self.checkpoint_path, "r") as f:
@@ -153,9 +152,10 @@ class Trainer:
     def train(self, max_epochs: int) -> None:
         for epoch in range(max_epochs + 1):
             self.epoch = epoch
-            self.train_one_epoch()
-            _, score = self.eval_one_epoch()
-            self.scheduler.step()
+            train_loss = self.train_one_epoch()
+            eval_loss, base_score, score = self.eval_one_epoch()
+            logger.info(f"{epoch=} {train_loss=} {eval_loss=} {base_score=} {score=}")
+            self.scheduler.step(train_loss)
             if score < self.best_score:
                 logger.info('update model')
                 self.save_checkpoint()
