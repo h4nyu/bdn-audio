@@ -43,13 +43,13 @@ class Trainer:
         self.device = DEVICE
         resolution = (128, 32)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.01)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.001)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                Dataset(train_data * 5, resolution=resolution, mode="train",),
+                Dataset(train_data * 10, resolution=resolution, mode="train",),
                 shuffle=True,
-                batch_size=16,
+                batch_size=32,
                 drop_last=True,
             ),
             "test": DataLoader(
@@ -182,14 +182,13 @@ class Predict:
         max_vote = Vote('max')
         mean_vote = Vote('mean')
         with torch.no_grad():
-            for x, hfliped, vfliped, ids, scales in self.data_loader:
+            for x, hfliped, ids, scales in self.data_loader:
                 id = ids[0]
                 scale = scales[0].item()
-                x, hfliped, vfliped = x.to(DEVICE), hfliped.to(DEVICE), vfliped.to(DEVICE)
+                x, hfliped = x.to(DEVICE), hfliped.to(DEVICE)
                 y = self.model(x)[0].cpu().numpy()
                 h_y = self.model(hfliped)[0].cpu().numpy()
-                v_y = self.model(vfliped)[0].cpu().numpy()
-                ys =[y, hflip(h_y, h_y)[0], vflip(v_y, v_y)[0]]
+                ys =[y, hflip(h_y, h_y)[0]]
                 y = mean_vote(ys)
                 y = y * scale
                 predict_audios.append(Audio(id, y))

@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-#  import torch.nn.LeakyReLU as Activation
+from torch.nn import CELU as Activation
 
 
 class LogCoshLoss(torch.nn.Module):
@@ -87,7 +87,7 @@ class CSE2d(nn.Module):
         self.se = nn.Sequential(
             nn.AdaptiveAvgPool2d(1),
             nn.Conv2d(in_channels, in_channels // reduction, 1),
-            nn.LeakyReLU(inplace=True),
+            Activation(inplace=True),
             nn.Conv2d(in_channels // reduction, in_channels, 1),
             nn.Sigmoid(),
         )
@@ -123,7 +123,7 @@ class CSE1d(nn.Module):
         self.se = nn.Sequential(
             nn.AdaptiveAvgPool1d(1),
             nn.Conv1d(in_channels, in_channels // reduction, 1),
-            nn.LeakyReLU(inplace=True),
+            Activation(inplace=True),
             nn.Conv1d(in_channels // reduction, in_channels, 1),
             nn.Sigmoid(),
         )
@@ -162,7 +162,7 @@ class SENextBottleneck2d(nn.Module):
         self.se = CSE2d(out_channels, reduction)
         self.stride = stride
         self.is_shortcut = is_shortcut
-        self.activation = nn.LeakyReLU(inplace=True)
+        self.activation = Activation(inplace=True)
         if self.is_shortcut:
             self.shortcut = ConvBR2d(
                 in_channels, out_channels, 1, 0, 1, is_activation=False
@@ -197,7 +197,7 @@ class SENextBottleneck1d(nn.Module):
         in_channels: int,
         out_channels: int,
         stride: int = 1,
-        reduction: int = 8,
+        reduction: int = 16,
         pool: t.Literal["max", "avg"] = "max",
         is_shortcut: bool = False,
     ) -> None:
@@ -205,14 +205,14 @@ class SENextBottleneck1d(nn.Module):
         mid_channels = out_channels // reduction
         self.conv1 = ConvBR1d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
         self.conv2 = ConvBR1d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.se = CSE1d(out_channels, reduction)
+        self.se = SCSE1d(out_channels, reduction)
         self.stride = stride
         self.is_shortcut = is_shortcut
         if self.is_shortcut:
             self.shortcut = ConvBR1d(
                 in_channels, out_channels, 1, 0, 1, is_activation=False
             )
-        self.activation = nn.LeakyReLU(inplace=True)
+        self.activation = Activation(inplace=True)
         if stride > 1:
             if pool == "max":
                 self.pool = nn.MaxPool1d(stride, stride)
@@ -259,7 +259,7 @@ class ConvBR1d(nn.Module):
         self.is_activation = is_activation
 
         if is_activation:
-            self.activation = nn.LeakyReLU(inplace=True)
+            self.activation = Activation(inplace=True)
 
     def forward(self, x):  # type: ignore
         x = self.bn(self.conv(x))
@@ -421,13 +421,12 @@ class UNet1d(nn.Module):
         self.center = SENextBottleneck1d(base_channel * 16, base_channel * 16)
         self.up4 = Up1d(base_channel * 16, base_channel * 8, bilinear=False, merge=True)
         self.up3 = Up1d(base_channel * 8, base_channel * 4, bilinear=False, merge=True)
-        self.up2 = Up1d(base_channel * 4, base_channel * 2, bilinear=False, merge=False)
-        self.up1 = Up1d(base_channel * 2, base_channel, bilinear=False, merge=False)
+        self.up2 = Up1d(base_channel * 4, base_channel * 2, bilinear=False, merge=True)
+        self.up1 = Up1d(base_channel * 2, base_channel, bilinear=False, merge=True)
 
         self.outc = nn.Sequential(
-            SENextBottleneck1d(base_channel, base_channel, stride=1),
             nn.Conv1d(base_channel, out_channels, kernel_size=3, stride=1, padding=0),
-            nn.Sigmoid(),
+            nn.Hardtanh(min_val=1e-10, max_val=1.0)
         )
 
     def forward(self, x):  # type: ignore
