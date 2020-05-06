@@ -237,3 +237,24 @@ class Merge:
         res = noise_x.copy()
         res[mask] = denoised_x[mask]
         return res
+
+class Vote:
+    def __init__(self, method:t.Literal['max', 'min', 'mean']='mean') -> None:
+        self.method = method
+
+    def _mean(self, arrs:t.Sequence[t.Any]) -> t.Any:
+        return sum(arrs) / len(arrs)
+
+    def _max(self, arrs:t.Sequence[t.Any]) -> t.Any:
+        return np.max(np.stack(arrs), axis=0)
+
+    def _min(self, arrs:t.Sequence[t.Any]) -> t.Any:
+        return np.min(np.stack(arrs), axis=0)
+
+    def __call__(self, arrs: t.Sequence[t.Any]) -> t.Any:
+        if self.method == 'min':
+            return self._min(arrs)
+        if self.method == 'max':
+            return self._max(arrs)
+        if self.method == 'mean':
+            return self._mean(arrs)
