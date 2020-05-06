@@ -16,6 +16,7 @@ from .preprocess import (
     Mse,
     Merge,
     plot_spectrograms,
+    Vote,
 )
 from .train import Trainer, Predict
 from sklearn.linear_model import LinearRegression
@@ -163,7 +164,7 @@ def pre_submit(fold_idx:int) -> None:
         ]
 
         y_gt = gt.spectrogram
-        merged = sum(y_spes) / len(y_spes)
+        merged = Vote('mean')(y_spes)
         merged = Merge(NOISE_FLOOR)(x_sp, merged)
         print(np.max(merged), np.max(x_sp))
         mse = Mse()
@@ -191,7 +192,7 @@ def submit() -> None:
     for x, ys in zip(noised_audios, zip(*fold_preds)):
         x_sp = x.spectrogram
         y_spes = [y.spectrogram for y in ys]
-        merged = sum(y_spes) / len(y_spes)
+        merged = np.max(np.stack(y_spes), axis=0)
         merged = Merge(NOISE_FLOOR)(x_sp, merged)
         print(np.max(merged), np.max(x_sp))
 

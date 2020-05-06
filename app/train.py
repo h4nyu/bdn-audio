@@ -4,7 +4,7 @@ import json
 import os
 from .entities import Audios, Audio
 from .dataset import Dataset, PredictDataset
-from .preprocess import HFlip1d, VFlip1d
+from .preprocess import HFlip1d, VFlip1d, Vote
 import os
 import torch
 from pathlib import Path
@@ -41,7 +41,7 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = (96, 32)
+        resolution = (128, 32)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
         self.optimizer = optim.AdamW(self.model.parameters(), lr=0.01)  # type: ignore
         self.epoch = 1
@@ -62,7 +62,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=10, eps=1e-7, factor=0.5)
+        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=5, eps=1e-9, factor=0.5)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
@@ -179,6 +179,8 @@ class Predict:
         predict_audios: Audios = []
         hflip = HFlip1d(p=1)
         vflip = VFlip1d(p=1)
+        max_vote = Vote('max')
+        mean_vote = Vote('mean')
         with torch.no_grad():
             for x, hfliped, vfliped, ids, scales in self.data_loader:
                 id = ids[0]
@@ -187,7 +189,8 @@ class Predict:
                 y = self.model(x)[0].cpu().numpy()
                 h_y = self.model(hfliped)[0].cpu().numpy()
                 v_y = self.model(vfliped)[0].cpu().numpy()
-                y = np.max(np.stack([y, hflip(h_y, h_y)[0], vflip(v_y, v_y)[0]]), axis=0)
+                ys =[y, hflip(h_y, h_y)[0], vflip(v_y, v_y)[0]]
+                y = mean_vote(ys)
                 y = y * scale
                 predict_audios.append(Audio(id, y))
         return predict_audios
