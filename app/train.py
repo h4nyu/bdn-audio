@@ -43,7 +43,7 @@ class Trainer:
         self.device = DEVICE
         resolution = (128, 32)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.001)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.005)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -62,7 +62,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=5, eps=1e-9, factor=0.5)
+        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=3, eps=1e-9, factor=0.5)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)

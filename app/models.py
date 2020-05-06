@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-from torch.nn import CELU as Activation
+from torch.nn import LeakyReLU as Activation
 
 
 class LogCoshLoss(torch.nn.Module):
