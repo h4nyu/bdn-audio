@@ -471,7 +471,7 @@ class UNet2d(nn.Module):
         self.down3 = Down2d(base_channel * 4, base_channel * 8, pool="max")
         self.down4 = Down2d(base_channel * 8, base_channel * 16, pool="max")
         self.center = SENextBottleneck2d(base_channel * 16, base_channel * 16)
-        self.up4 = Up2d(base_channel * 16, base_channel * 8, bilinear=False, merge=True)
+        self.up4 = Up2d(base_channel * 16, base_channel * 8, bilinear=False, merge=False)
         self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=False, merge=False)
         self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=False, merge=False)
         self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=False)
