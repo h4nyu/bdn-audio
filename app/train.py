@@ -13,8 +13,8 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
-#  from torch.optim.lr_scheduler import CosineAnnealingLR as LRScheduler
-from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
+from torch.optim.lr_scheduler import CosineAnnealingLR as LRScheduler
+#  from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
 from concurrent import futures
 from datetime import datetime
 
@@ -43,7 +43,7 @@ class Trainer:
         self.device = DEVICE
         resolution = (128, 32)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.005)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.02)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -62,7 +62,8 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=3, eps=1e-9, factor=0.5)
+        #  self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=3, eps=1e-4, factor=0.5)
+        self.scheduler = LRScheduler(self.optimizer, eta_min=1e-3, T_max=10)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
@@ -154,7 +155,8 @@ class Trainer:
             train_loss = self.train_one_epoch()
             eval_loss, base_score, score = self.eval_one_epoch()
             logger.info(f"{epoch=} {train_loss=} {eval_loss=} {base_score=} {score=}")
-            self.scheduler.step(train_loss)
+            #  self.scheduler.step(train_loss)
+            self.scheduler.step()
             if score < self.best_score:
                 logger.info('update model')
                 self.save_checkpoint()

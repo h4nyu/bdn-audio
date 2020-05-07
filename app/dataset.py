@@ -12,7 +12,6 @@ from .preprocess import (
     RandomScale,
     RandomCrop2d,
 )
-from .config import NOISE_P, NOISE_HIGH, NOISE_LOW
 from sklearn.preprocessing import MinMaxScaler
 from albumentations.augmentations.transforms import (
     Resize,
@@ -44,7 +43,7 @@ class Dataset(_Dataset):
 
     def transform(self, audio: Audio) -> t.Tuple[t.Any, t.Any]:
         raw = audio.spectrogram.copy()
-        noised = Noise(p=NOISE_P, high=NOISE_HIGH, low=NOISE_LOW)(raw.copy())
+        noised = Noise()(raw.copy())
         _max = np.max(raw)
         scale = MAX_POWER
         raw = (raw) / scale

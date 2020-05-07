@@ -151,7 +151,7 @@ class SENextBottleneck2d(nn.Module):
         in_channels: int,
         out_channels: int,
         stride: int = 1,
-        reduction: int = 16,
+        reduction: int = 4,
         pool: t.Literal["max", "avg"] = "max",
         is_shortcut: bool = True,
     ) -> None:
@@ -306,6 +306,12 @@ class Down2d(nn.Module):
                 is_shortcut=True,
                 pool=pool,
             ),
+            SENextBottleneck2d(
+                in_channels=out_channels,
+                out_channels=out_channels,
+                stride=1,
+                is_shortcut=False,
+            ),
         )
 
     def forward(self, x):  # type: ignore
@@ -382,7 +388,7 @@ class Up2d(nn.Module):
             )
         else:
             self.conv1 = ConvBR2d(in_channels, in_channels, kernel_size=3, padding=1)
-        self.conv2 = ConvBR2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.conv2 = SENextBottleneck2d(in_channels, out_channels)
 
     def forward(self, x1, x2):  # type: ignore
         x1 = self.up(x1)
@@ -447,7 +453,7 @@ class UNet1d(nn.Module):
 class UNet2d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        base_channel = 16
+        base_channel = 8
 
         self.in_channels = in_channels
         self.inc = nn.Sequential(
@@ -466,7 +472,7 @@ class UNet2d(nn.Module):
         self.down4 = Down2d(base_channel * 8, base_channel * 16, pool="max")
         self.center = SENextBottleneck2d(base_channel * 16, base_channel * 16)
         self.up4 = Up2d(base_channel * 16, base_channel * 8, bilinear=False, merge=True)
-        self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=False, merge=True)
+        self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=False, merge=False)
         self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=False, merge=False)
         self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=False)
 
@@ -479,8 +485,8 @@ class UNet2d(nn.Module):
     def forward(self, x):  # type: ignore
         input_shape = x.shape
         x = x.view(x.shape[0], 1, *x.shape[1:])
-        x = self.before_up(x)
-        n0 = self.inc(x)  # [B, 64, L]
+        n = self.before_up(x)
+        n0 = self.inc(n)  # [B, 64, L]
         n1 = self.down1(n0)  # [B, 128, L//2]
         n2 = self.down2(n1)  # [B, 128, L//2]
         n3 = self.down3(n2)  # [B, 128, L//2]
@@ -490,7 +496,8 @@ class UNet2d(nn.Module):
         n = self.up3(n3, n2)
         n = self.up2(n2, n1)
         n = self.up1(n1, n0)
-        x = self.outc(n)
+        n = self.outc(n)
+        x = x + n
         x = x.view(*input_shape)
         return x
 

@@ -14,7 +14,13 @@ from .entities import Audios, Audio
 from sklearn.metrics import mean_squared_error
 from cytoolz.curried import unique, pipe, map, mapcat, frequencies, topk
 import matplotlib.pyplot as plt
-from app.config import NOISED_TGT_DIR, RAW_TGT_DIR
+from app.config import (
+    NOISED_TGT_DIR,
+    RAW_TGT_DIR,
+    NOISE_P_RANGE,
+    NOISE_HIGH_RANGE,
+    NOISE_LOW_RANGE,
+)
 from librosa import display
 from librosa.feature.inverse import mel_to_audio
 from librosa.output import write_wav
@@ -97,10 +103,10 @@ class KFold:
 
 
 class Noise:
-    def __init__(self, p: float = 0.2, high: float = 0.05, low: float = 0) -> None:
-        self.high = high
-        self.low = low
-        self.p = p
+    def __init__(self) -> None:
+        self.high = np.random.uniform(high=NOISE_HIGH_RANGE[0], low=NOISE_HIGH_RANGE[1])
+        self.low = np.random.uniform(high=NOISE_LOW_RANGE[0], low=NOISE_LOW_RANGE[1])
+        self.p = np.random.uniform(high=NOISE_P_RANGE[0], low=NOISE_P_RANGE[1])
 
     def __call__(self, spectrogram: t.Any) -> t.Any:
         value = np.mean(spectrogram)

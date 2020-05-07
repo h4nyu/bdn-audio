@@ -1,7 +1,7 @@
 from pathlib import Path
 import typing as t
 from .cache import Cache
-from .config import NOISED_TGT_DIR, RAW_TGT_DIR, NOISE_P, NOISE_HIGH, NOISE_LOW, NOISE_FLOOR
+from .config import NOISED_TGT_DIR, RAW_TGT_DIR,  NOISE_FLOOR
 from . import config
 from .entities import Audios, Audio
 from .preprocess import (
@@ -92,7 +92,7 @@ def cross_section(in_path: str, out_path: str) -> t.Any:
 def dummy_aug(p: float = 0.2) -> t.Any:
     executor = futures.ProcessPoolExecutor()
     raw_audios = load_audios(RAW_TGT_DIR)
-    noise = Noise(p=p)
+    noise = Noise()
     futs, _ = futures.wait(
         [executor.submit(noise, audio.spectrogram) for audio in raw_audios]
     )
@@ -144,7 +144,7 @@ def train(fold_idx: int) -> None:
 
 def pre_submit(fold_idx:int) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)[:30]
-    noise = Noise(p=NOISE_P, high=NOISE_HIGH, low=NOISE_LOW)
+    noise = Noise()
     noised_audios = [Audio(x.id, noise(x.spectrogram)) for x in raw_audios]
 
     submit_dir = Path("/store/pre_submit")
