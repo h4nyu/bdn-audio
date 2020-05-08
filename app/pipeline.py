@@ -151,7 +151,6 @@ def pre_submit(num_models:int) -> None:
     submit_dir.mkdir(exist_ok=True)
     fold_preds = [
         Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in range(num_models)
-
     ]
     score = 0
     base_score = 0.0

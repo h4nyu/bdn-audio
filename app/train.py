@@ -13,8 +13,8 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
-from torch.optim.lr_scheduler import CosineAnnealingLR as LRScheduler
-#  from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
+#  from torch.optim.lr_scheduler import CosineAnnealingLR as LRScheduler
+from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
 from concurrent import futures
 from datetime import datetime
 
@@ -23,7 +23,7 @@ from datetime import datetime
 from .models import UNet2d as NNModel
 #  from .models import UNet2d as NNModel
 
-#  from .models import LogCoshLoss as Loss
+from .models import LogCoshLoss as Loss
 from torch.nn import L1Loss
 from torch.nn import MSELoss
 from logging import getLogger
@@ -62,8 +62,8 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        #  self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=3, eps=1e-4, factor=0.5)
-        self.scheduler = LRScheduler(self.optimizer, eta_min=1e-4, T_max=10)
+        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=3, eps=1e-4, factor=0.5)
+        #  self.scheduler = LRScheduler(self.optimizer, eta_min=1e-4, T_max=10)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
@@ -101,9 +101,9 @@ class Trainer:
         return epoch_loss
 
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
-        mse = MSELoss(reduction="none")
-        mae = L1Loss(reduction="none")
-        loss1 = mse(x, y).mean()
+        #  mse = MSELoss(reduction="none")
+        #  mae = L1Loss(reduction="none")
+        loss1 = Loss()(x, y)
         return loss1
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
@@ -155,8 +155,8 @@ class Trainer:
             train_loss = self.train_one_epoch()
             eval_loss, base_score, score = self.eval_one_epoch()
             logger.info(f"{epoch=} {train_loss=} {eval_loss=} {base_score=} {score=}")
-            #  self.scheduler.step(train_loss)
-            self.scheduler.step()
+            self.scheduler.step(train_loss)
+            #  self.scheduler.step()
             if score < self.best_score:
                 logger.info('update model')
                 self.save_checkpoint()
