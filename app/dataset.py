@@ -45,7 +45,7 @@ class Dataset(_Dataset):
         raw = audio.spectrogram.copy()
         noised = Noise()(raw.copy())
         _max = np.max(raw)
-        scale = MAX_POWER
+        scale = _max
         raw = (raw) / scale
         noised = (noised) / scale
         if self.mode == "train":
@@ -73,7 +73,7 @@ class PredictDataset(_Dataset):
         row = self.audios[idx]
         sp = row.spectrogram
         _max = np.max(sp)
-        scale = MAX_POWER
+        scale = _max
         sp = (sp) / scale
         hfliped, _ = HFlip1d(p=1)(sp, sp)
         #  vfliped, _ = VFlip1d(p=1)(sp, sp)
