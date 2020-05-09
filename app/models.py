@@ -62,7 +62,7 @@ class ConvBR2d(nn.Module):
         self.is_activation = is_activation
 
         if is_activation:
-            self.activation = nn.ELU(inplace=True)
+            self.activation = Activation(inplace=True)
 
     def forward(self, x):  # type: ignore
         x = self.bn(self.conv(x))
