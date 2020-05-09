@@ -475,12 +475,12 @@ class UNet2d(nn.Module):
         self.down1 = Down2d(base_channel, base_channel * 2, pool="max")
         self.down2 = Down2d(base_channel * 2, base_channel * 4, pool="max")
         self.down3 = Down2d(base_channel * 4, base_channel * 8, pool="max")
-        self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=False, merge=True)
-        self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=False, merge=True)
-        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=True)
+        self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=True, merge=True)
+        self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=True, merge=True)
+        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=True, merge=True)
 
         self.outc = nn.Sequential(
-            nn.Conv2d(base_channel, base_channel, kernel_size=3, stride=1, padding=1),
+            SENextBottleneck2d(base_channel, base_channel),
             nn.Conv2d(base_channel, 1, kernel_size=1, stride=1, padding=0),
             nn.Sigmoid(),
         )
