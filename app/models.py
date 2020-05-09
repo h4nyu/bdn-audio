@@ -459,7 +459,7 @@ class UNet1d(nn.Module):
 class UNet2d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        base_channel = 8
+        base_channel = 16
 
         self.in_channels = in_channels
         self.inc = nn.Sequential(
@@ -477,7 +477,7 @@ class UNet2d(nn.Module):
         self.down3 = Down2d(base_channel * 4, base_channel * 8, pool="max")
         self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=False, merge=True)
         self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=False, merge=True)
-        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=False)
+        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=True)
 
         self.outc = nn.Sequential(
             nn.Conv2d(base_channel, base_channel, kernel_size=3, stride=1, padding=1),
