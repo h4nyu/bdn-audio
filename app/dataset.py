@@ -45,16 +45,21 @@ class Dataset(_Dataset):
         raw = audio.spectrogram.copy()
         noised = Noise()(raw.copy())
         _max = np.max(noised)
-        scale = _max * 1.1
+        scale = MAX_POWER
         raw = (raw) / scale
         noised = (noised) / scale
         if self.mode == "train":
+            _, w = raw.shape
+            if w < self.resolution[1]:
+                noised = np.concatenate([noised, noised], axis=1)
+                raw = np.concatenate([raw, raw], axis=1)
+
             resized = RandomCrop(height=self.resolution[0], width=self.resolution[1])(
                 image=noised, mask=raw
             )
             noised, raw = resized["image"], resized["mask"]
             noised, raw = HFlip1d(p=0.5)(noised, raw)
-            noised, raw = VFlip1d(p=0.5)(noised, raw)
+            #  noised, raw = VFlip1d(p=0.5)(noised, raw)
             noised, raw = RandomScale(p=1, high=1, low=0.9)(noised, raw)
         return noised, raw, scale
 
@@ -74,7 +79,7 @@ class PredictDataset(_Dataset):
         row = self.audios[idx]
         sp = row.spectrogram
         _max = np.max(sp)
-        scale = _max * 1.1
+        scale = MAX_POWER
         sp = (sp) / scale
         hfliped, _ = HFlip1d(p=1)(sp, sp)
         #  vfliped, _ = VFlip1d(p=1)(sp, sp)

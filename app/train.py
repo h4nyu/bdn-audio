@@ -41,7 +41,7 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 class Trainer:
     def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
         self.device = DEVICE
-        resolution = (128, 32)
+        resolution = (128, 128)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
         self.optimizer = optim.AdamW(self.model.parameters(), lr=0.01)  # type: ignore
         self.epoch = 1
@@ -49,7 +49,7 @@ class Trainer:
             "train": DataLoader(
                 Dataset(train_data * 10, resolution=resolution, mode="train",),
                 shuffle=True,
-                batch_size=16,
+                batch_size=8,
                 drop_last=True,
             ),
             "test": DataLoader(
@@ -62,7 +62,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=5, eps=1e-7, factor=0.5)
+        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=3, eps=1e-7, factor=0.5)
         #  self.scheduler = LRScheduler(self.optimizer, eta_min=1e-4, T_max=10)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
