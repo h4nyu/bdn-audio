@@ -69,7 +69,8 @@ def eda_noise() -> t.Any:
 
 
 def eda_summary() -> None:
-    audios = load_audios(NOISED_TGT_DIR) + load_audios(RAW_TGT_DIR)
+    audios = load_audios(NOISED_TGT_DIR)
+    #  audios = load_audios(RAW_TGT_DIR)
     dataset_summary = summary(audios)
     logger.info(f"{dataset_summary=}")
 

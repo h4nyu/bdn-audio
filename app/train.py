@@ -92,7 +92,7 @@ class Trainer:
             self.optimizer.zero_grad()
             epoch_loss += loss.item()
             x = img[0].detach().cpu().numpy()
-            pred = pred[0].detach().cpu().numpy()
+            pred = np.abs(pred[0].detach().cpu().numpy())
             y = label[0].detach().cpu().numpy()
 
         plot_spectrograms(
@@ -126,7 +126,7 @@ class Trainer:
                 epoch_loss += loss.item()
                 scale = scales[0].item()
                 x, pred, y = [
-                    i[0].detach().cpu().numpy() * scale for i in [img, pred, label]
+                    np.abs(i[0].detach().cpu().numpy()) * scale for i in [img, pred, label]
                 ]
                 score += mean_squared_error(pred, y,)
                 base_score += mean_squared_error(x, y,)
