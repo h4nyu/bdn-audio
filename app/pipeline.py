@@ -43,12 +43,8 @@ def eda_noise() -> t.Any:
         noise_sp = noise_audios[index].spectrogram[:, :5]
         generated_noise_sp = Noise()(clean_sp)
         plot_spectrograms(
-            [
-                np.log(i)
-                for i
-                in [clean_sp, noise_sp]
-            ],
-            plot_dir.joinpath(f"floor-{index}.png")
+            [np.log(i) for i in [clean_sp, noise_sp]],
+            plot_dir.joinpath(f"floor-{index}.png"),
         )
         clean_mean = clean_sp.mean()
         noised_mean = noise_sp.mean()
@@ -61,17 +57,21 @@ def eda_noise() -> t.Any:
         fig, axs = plt.subplots(3, sharex=True)
         bins = 500
         axs[0].hist(clean_sp.flatten(), bins=bins)
-        axs[0].set_title('clean')
+        axs[0].set_title("clean")
 
         axs[1].hist(noise_sp.flatten(), bins=bins)
-        axs[1].set_title('noise')
+        axs[1].set_title("noise")
 
         axs[2].hist(generated_noise_sp.flatten(), bins=bins)
-        axs[2].set_title('generated_noise')
-        plt.savefig(plot_dir.joinpath(f'floor_hist-{index}.png'))
+        axs[2].set_title("generated_noise")
+        plt.savefig(plot_dir.joinpath(f"floor_hist-{index}.png"))
         plt.close()
 
 
+def eda_summary() -> None:
+    audios = load_audios(NOISED_TGT_DIR) + load_audios(RAW_TGT_DIR)
+    dataset_summary = summary(audios)
+    logger.info(f"{dataset_summary=}")
 
 
 def eda(in_path: str, out_path: str) -> t.Any:
@@ -98,8 +98,6 @@ def eda(in_path: str, out_path: str) -> t.Any:
             for audio in audios
         ]
     )
-    dataset_summary = summary(audios)
-    logger.info(f"{dataset_summary=}")
 
 
 def cross_section(in_path: str, out_path: str) -> t.Any:
@@ -126,8 +124,6 @@ def cross_section(in_path: str, out_path: str) -> t.Any:
             for audio in audios
         ]
     )
-    dataset_summary = summary(audios)
-    logger.info(f"{dataset_summary=}")
 
 
 def dummy_aug(p: float = 0.2) -> t.Any:
