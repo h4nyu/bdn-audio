@@ -13,6 +13,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, Subset
 from sklearn.metrics import mean_squared_error
+
 #  from torch.optim.lr_scheduler import CosineAnnealingLR as LRScheduler
 #  from torch.optim.lr_scheduler import ReduceLROnPlateau as LRScheduler
 from concurrent import futures
@@ -21,6 +22,7 @@ from datetime import datetime
 #  from .models import UNet1d as NNModel
 
 from .models import UNet2d as NNModel
+
 #  from .models import UNet2d as NNModel
 
 from .models import LogCoshLoss as Loss
@@ -43,7 +45,7 @@ class Trainer:
         self.device = DEVICE
         resolution = (128, 128)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.01,weight_decay=0.01)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.01, weight_decay=0.01)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -62,7 +64,9 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, verbose=True, patience=3, eps=1e-7, factor=0.5)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, verbose=True, patience=3, eps=1e-7, factor=0.5
+        )
         #  self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, eta_min=1e-4, T_max=10)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
@@ -158,7 +162,7 @@ class Trainer:
             self.scheduler.step(train_loss)
             #  self.scheduler.step()
             if score < self.best_score:
-                logger.info('update model')
+                logger.info("update model")
                 self.save_checkpoint()
                 self.best_score = score
 
@@ -181,8 +185,8 @@ class Predict:
         predict_audios: Audios = []
         hflip = HFlip1d(p=1)
         vflip = VFlip1d(p=1)
-        max_vote = Vote('max')
-        mean_vote = Vote('mean')
+        max_vote = Vote("max")
+        mean_vote = Vote("mean")
         with torch.no_grad():
             for x, hfliped, ids, scales in self.data_loader:
                 id = ids[0]
@@ -190,7 +194,7 @@ class Predict:
                 x, hfliped = x.to(DEVICE), hfliped.to(DEVICE)
                 y = self.model(x)[0].cpu().numpy()
                 h_y = self.model(hfliped)[0].cpu().numpy()
-                ys =[y, hflip(h_y, h_y)[0]]
+                ys = [y, hflip(h_y, h_y)[0]]
                 y = mean_vote(ys)
                 y = y * scale
                 predict_audios.append(Audio(id, y))

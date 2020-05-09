@@ -152,15 +152,19 @@ class SENextBottleneck2d(nn.Module):
         out_channels: int,
         stride: int = 1,
         reduction: int = 4,
-        dilation:int = 1,
-        padding:int =1,
+        dilation: int = 1,
+        padding: int = 1,
         pool: t.Literal["max", "avg"] = "max",
         is_shortcut: bool = True,
     ) -> None:
         super().__init__()
         mid_channels = out_channels // reduction
-        self.conv1 = ConvBR2d(in_channels, out_channels, 3, stride=1, dilation=dilation, padding=padding)
-        self.conv2 = ConvBR2d(in_channels, out_channels, 3, stride=1, dilation=dilation, padding=padding)
+        self.conv1 = ConvBR2d(
+            in_channels, out_channels, 3, stride=1, dilation=dilation, padding=padding
+        )
+        self.conv2 = ConvBR2d(
+            in_channels, out_channels, 3, stride=1, dilation=dilation, padding=padding
+        )
         self.se = CSE2d(out_channels, reduction)
         self.stride = stride
         self.is_shortcut = is_shortcut
@@ -205,8 +209,12 @@ class SENextBottleneck1d(nn.Module):
     ) -> None:
         super().__init__()
         mid_channels = out_channels // reduction
-        self.conv1 = ConvBR1d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
-        self.conv2 = ConvBR1d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.conv1 = ConvBR1d(
+            in_channels, out_channels, kernel_size=3, stride=1, padding=1
+        )
+        self.conv2 = ConvBR1d(
+            out_channels, out_channels, kernel_size=3, stride=1, padding=1
+        )
         self.se = SCSE1d(out_channels, reduction)
         self.stride = stride
         self.is_shortcut = is_shortcut
@@ -438,7 +446,7 @@ class UNet1d(nn.Module):
 
         self.outc = nn.Sequential(
             nn.Conv1d(base_channel, out_channels, kernel_size=3, stride=1, padding=0),
-            nn.Hardtanh(min_val=1e-10, max_val=1.0)
+            nn.Hardtanh(min_val=1e-10, max_val=1.0),
         )
 
     def forward(self, x):  # type: ignore
@@ -447,7 +455,7 @@ class UNet1d(nn.Module):
         n2 = self.down2(n1)  # [B, 128, L//2]
         n3 = self.down3(n2)  # [B, 128, L//2]
         n4 = self.down4(n3)  # [B, 128, L//2]
-        n4 = self.center(n4) # [B, 128, L//
+        n4 = self.center(n4)  # [B, 128, L//
         n = self.up4(n4, n3)
         n = self.up3(n3, n2)
         n = self.up2(n2, n1)

@@ -1,7 +1,7 @@
 from pathlib import Path
 import typing as t
 from .cache import Cache
-from .config import NOISED_TGT_DIR, RAW_TGT_DIR,  NOISE_FLOOR
+from .config import NOISED_TGT_DIR, RAW_TGT_DIR, NOISE_FLOOR
 from . import config
 from .entities import Audios, Audio
 from .preprocess import (
@@ -20,6 +20,7 @@ from .preprocess import (
 )
 from .train import Trainer, Predict
 from sklearn.linear_model import LinearRegression
+import matplotlib.pyplot as plt
 from concurrent import futures
 from pathlib import Path
 from logging import getLogger
@@ -32,6 +33,45 @@ plot_dir = Path("/store/plot")
 plot_dir.mkdir(exist_ok=True)
 wav_dir = Path("/store/wav")
 wav_dir.mkdir(exist_ok=True)
+
+
+def eda_noise() -> t.Any:
+    clean_audios = load_audios(RAW_TGT_DIR)
+    noise_audios = load_audios(NOISED_TGT_DIR)
+    for index in range(0, 2):
+        clean_sp = clean_audios[index].spectrogram[:, :5]
+        noise_sp = noise_audios[index].spectrogram[:, :5]
+        generated_noise_sp = Noise()(clean_sp)
+        plot_spectrograms(
+            [
+                np.log(i)
+                for i
+                in [clean_sp, noise_sp]
+            ],
+            plot_dir.joinpath(f"floor-{index}.png")
+        )
+        clean_mean = clean_sp.mean()
+        noised_mean = noise_sp.mean()
+        print(f"{clean_mean=} {noised_mean=}")
+
+        clean_std = clean_sp.std()
+        noised_std = noise_sp.std()
+        print(f"{clean_std=} {noised_std=}")
+
+        fig, axs = plt.subplots(3, sharex=True)
+        bins = 500
+        axs[0].hist(clean_sp.flatten(), bins=bins)
+        axs[0].set_title('clean')
+
+        axs[1].hist(noise_sp.flatten(), bins=bins)
+        axs[1].set_title('noise')
+
+        axs[2].hist(generated_noise_sp.flatten(), bins=bins)
+        axs[2].set_title('generated_noise')
+        plt.savefig(plot_dir.joinpath(f'floor_hist-{index}.png'))
+        plt.close()
+
+
 
 
 def eda(in_path: str, out_path: str) -> t.Any:
@@ -60,6 +100,7 @@ def eda(in_path: str, out_path: str) -> t.Any:
     )
     dataset_summary = summary(audios)
     logger.info(f"{dataset_summary=}")
+
 
 def cross_section(in_path: str, out_path: str) -> t.Any:
     executor = futures.ProcessPoolExecutor()
@@ -136,35 +177,33 @@ def train(fold_idx: int) -> None:
     #  noised_audios = load_audios(NOISED_TGT_DIR)
     kf = KFold(n_split=4)
     train, valid = list(kf(raw_audios))[fold_idx]
-    t = Trainer(
-        train, valid, output_dir=Path(f"/store/model-{fold_idx}")
-    )
+    t = Trainer(train, valid, output_dir=Path(f"/store/model-{fold_idx}"))
     t.train(8000)
 
 
-def pre_submit(num_models:int) -> None:
-    raw_audios = load_audios(RAW_TGT_DIR)[:30]
+def pre_submit(num_models: int) -> None:
+    raw_audios = load_audios(RAW_TGT_DIR)[:26]
     noise = Noise()
     noised_audios = [Audio(x.id, noise(x.spectrogram)) for x in raw_audios]
 
     submit_dir = Path("/store/pre_submit")
     submit_dir.mkdir(exist_ok=True)
     fold_preds = [
-        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)() for i in range(num_models)
+        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)()
+        for i in range(num_models)
     ]
     score = 0
     base_score = 0.0
     count = 1
+    length = 0
     for x, ys, gt in zip(noised_audios, zip(*fold_preds), raw_audios):
         count += 1
         x_sp = x.spectrogram
-        y_spes = [
-            i.spectrogram
-            for i in ys
-        ]
+        y_spes = [i.spectrogram for i in ys]
+        length += x_sp.shape[1]
 
         y_gt = gt.spectrogram
-        merged = Vote('mean')(y_spes)
+        merged = Vote("mean")(y_spes)
         merged = Merge(NOISE_FLOOR)(x_sp, merged)
         print(np.max(merged), np.max(x_sp))
         mse = Mse()
@@ -178,19 +217,21 @@ def pre_submit(num_models:int) -> None:
         plot_spectrograms(
             [x_sp, merged, x_sp - merged,], submit_dir.joinpath(f"diff-{x.id}.png")
         )
-    print(f"{score=} {base_score=}")
+    print(f"{score=} {base_score=} {length=}")
 
 
-def submit(num_models:int) -> None:
+def submit(num_models: int) -> None:
     noised_audios = load_audios(NOISED_TGT_DIR)
     submit_dir = Path("/store/predict")
     submit_dir.mkdir(exist_ok=True)
+    length = 0
     fold_preds = [
         Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)()
         for i in range(num_models)
     ]
     for x, ys in zip(noised_audios, zip(*fold_preds)):
         x_sp = x.spectrogram
+        length += x_sp.shape[1]
         y_spes = [y.spectrogram for y in ys]
         merged = np.max(np.stack(y_spes), axis=0)
         merged = Merge(NOISE_FLOOR)(x_sp, merged)
@@ -205,3 +246,4 @@ def submit(num_models:int) -> None:
         )
 
         np.save(file=submit_dir.joinpath(f"tgt_{x.id}.npy"), arr=merged)
+    print(f"{length=}")
