@@ -496,8 +496,8 @@ class UNet2d(nn.Module):
         n = self.up2(n2, n1)
         n = self.up1(n1, n0)
         n = self.outc(n)
-        x = n
-        #  x = n + x
+        #  x = n
+        x = n + x
         x = x.view(*input_shape)
         return x
 
