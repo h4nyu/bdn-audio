@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-from torch.nn import SELU as Activation
+from torch.nn import ReLU as Activation
 
 
 class LogCoshLoss(torch.nn.Module):
@@ -304,8 +304,8 @@ class Down2d(nn.Module):
             SENextBottleneck2d(
                 in_channels=in_channels,
                 out_channels=out_channels,
-                dilation=2,
-                padding=2,
+                dilation=1,
+                padding=1,
                 stride=2,
                 is_shortcut=True,
                 pool=pool,
@@ -313,8 +313,8 @@ class Down2d(nn.Module):
             SENextBottleneck2d(
                 in_channels=out_channels,
                 out_channels=out_channels,
-                dilation=2,
-                padding=2,
+                dilation=1,
+                padding=1,
                 stride=1,
                 is_shortcut=False,
             ),
@@ -459,7 +459,7 @@ class UNet1d(nn.Module):
 class UNet2d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        base_channel = 16
+        base_channel = 8
 
         self.in_channels = in_channels
         self.inc = nn.Sequential(
@@ -468,22 +468,19 @@ class UNet2d(nn.Module):
                 out_channels=base_channel,
                 kernel_size=3,
                 stride=1,
-                dilation=2,
-                padding=0,
+                dilation=1,
+                padding=1,
             ),
         )
-        self.pad = nn.ReflectionPad2d(2)
         self.down1 = Down2d(base_channel, base_channel * 2, pool="max")
         self.down2 = Down2d(base_channel * 2, base_channel * 4, pool="max")
         self.down3 = Down2d(base_channel * 4, base_channel * 8, pool="max")
-        self.down4 = Down2d(base_channel * 8, base_channel * 16, pool="max")
-        self.center = SENextBottleneck2d(base_channel * 16, base_channel * 16)
-        self.up4 = Up2d(base_channel * 16, base_channel * 8, bilinear=False, merge=True)
         self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=False, merge=True)
         self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=False, merge=True)
-        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=True)
+        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=False)
 
         self.outc = nn.Sequential(
+            nn.Conv2d(base_channel, base_channel, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(base_channel, 1, kernel_size=1, stride=1, padding=0),
             nn.Sigmoid(),
         )
@@ -491,19 +488,16 @@ class UNet2d(nn.Module):
     def forward(self, x):  # type: ignore
         input_shape = x.shape
         x = x.view(x.shape[0], 1, *x.shape[1:])
-        x = self.pad(x)
         n0 = self.inc(x)  # [B, 64, L]
         n1 = self.down1(n0)  # [B, 128, L//2]
         n2 = self.down2(n1)  # [B, 128, L//2]
         n3 = self.down3(n2)  # [B, 128, L//2]
-        n4 = self.down4(n3)  # [B, 128, L//2]
-        n4 = self.center(n4) # [B, 128, L//
-        n = self.up4(n4, n3)
         n = self.up3(n3, n2)
         n = self.up2(n2, n1)
         n = self.up1(n1, n0)
         n = self.outc(n)
         x = n
+        #  x = n + x
         x = x.view(*input_shape)
         return x
 
