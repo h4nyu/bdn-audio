@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-from torch.nn import LeakyReLU as Activation
+from torch.nn import SELU as Activation
 
 
 class LogCoshLoss(torch.nn.Module):
@@ -453,7 +453,7 @@ class UNet1d(nn.Module):
 class UNet2d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        base_channel = 8
+        base_channel = 16
 
         self.in_channels = in_channels
         self.inc = nn.Sequential(
@@ -471,10 +471,10 @@ class UNet2d(nn.Module):
         self.down3 = Down2d(base_channel * 4, base_channel * 8, pool="max")
         self.down4 = Down2d(base_channel * 8, base_channel * 16, pool="max")
         self.center = SENextBottleneck2d(base_channel * 16, base_channel * 16)
-        self.up4 = Up2d(base_channel * 16, base_channel * 8, bilinear=False, merge=False)
-        self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=False, merge=False)
-        self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=False, merge=False)
-        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=False)
+        self.up4 = Up2d(base_channel * 16, base_channel * 8, bilinear=False, merge=True)
+        self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=False, merge=True)
+        self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=False, merge=True)
+        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=True)
 
         self.outc = nn.Sequential(
             SENextBottleneck2d(base_channel, base_channel, stride=2, pool="max"),
@@ -497,7 +497,7 @@ class UNet2d(nn.Module):
         n = self.up2(n2, n1)
         n = self.up1(n1, n0)
         n = self.outc(n)
-        x = x + n
+        x = n + x
         x = x.view(*input_shape)
         return x
 

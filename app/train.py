@@ -49,7 +49,7 @@ class Trainer:
             "train": DataLoader(
                 Dataset(train_data * 10, resolution=resolution, mode="train",),
                 shuffle=True,
-                batch_size=32,
+                batch_size=16,
                 drop_last=True,
             ),
             "test": DataLoader(
@@ -62,7 +62,7 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=3, eps=1e-4, factor=0.5)
+        self.scheduler = LRScheduler(self.optimizer, verbose=True, patience=5, eps=1e-7, factor=0.5)
         #  self.scheduler = LRScheduler(self.optimizer, eta_min=1e-4, T_max=10)
         train_len = len(train_data)
         logger.info(f"{train_len=}")

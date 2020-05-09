@@ -54,6 +54,7 @@ class Dataset(_Dataset):
             )
             noised, raw = resized["image"], resized["mask"]
             noised, raw = HFlip1d(p=0.5)(noised, raw)
+            noised, raw = VFlip1d(p=0.5)(noised, raw)
             noised, raw = RandomScale(p=1, high=1, low=0.9)(noised, raw)
         return noised, raw, scale
 
