@@ -482,7 +482,7 @@ class UNet2d(nn.Module):
         )
         self.down1 = Down2d(base_channel, base_channel * 2, pool="max")
         self.down2 = Down2d(base_channel * 2, base_channel * 4, pool="max")
-        self.down3 = Down2d(base_channel * 4, base_channel * 8, pool="max")
+        self.down3 = Down2d(base_channel * 4, base_channel * 8, pool="avg")
         self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=True, merge=True)
         self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=True, merge=True)
         self.up1 = Up2d(base_channel * 2, base_channel, bilinear=True, merge=True)
@@ -490,12 +490,12 @@ class UNet2d(nn.Module):
         self.outc = nn.Sequential(
             SENextBottleneck2d(base_channel, base_channel),
             nn.Conv2d(base_channel, 1, kernel_size=1, stride=1, padding=0),
-            nn.Tanh(),
         )
 
     def forward(self, x):  # type: ignore
         input_shape = x.shape
         x = x.view(x.shape[0], 1, *x.shape[1:])
+        x = torch.log(x)
         n0 = self.inc(x)  # [B, 64, L]
         n1 = self.down1(n0)  # [B, 128, L//2]
         n2 = self.down2(n1)  # [B, 128, L//2]
@@ -504,7 +504,7 @@ class UNet2d(nn.Module):
         n = self.up2(n2, n1)
         n = self.up1(n1, n0)
         n = self.outc(n)
-        x = torch.abs(n + x)
+        x = torch.exp(n + x)
         x = x.view(*input_shape)
         return x
 
