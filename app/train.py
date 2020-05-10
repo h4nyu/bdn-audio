@@ -113,7 +113,8 @@ class Trainer:
         self.model.eval()
         epoch = self.epoch
         epoch_loss = 0.0
-        score = 0.0 base_score = 0.0
+        score = 0.0
+        base_score = 0.0
         count = 0
         for img, label, scales, in tqdm(self.data_loaders["test"]):
             img, label = img.to(self.device), label.to(self.device)
