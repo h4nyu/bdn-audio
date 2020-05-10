@@ -106,15 +106,14 @@ class Trainer:
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
         #  mse = MSELoss(reduction="none")
         #  mae = L1Loss(reduction="none")
-        loss1 = MSELoss()(x, y).mean() + MSELoss()(x.mean(), y.mean()) * 100
+        loss1 = MSELoss()(x, y).mean()
         return loss1
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
         self.model.eval()
         epoch = self.epoch
         epoch_loss = 0.0
-        score = 0.0
-        base_score = 0.0
+        score = 0.0 base_score = 0.0
         count = 0
         for img, label, scales, in tqdm(self.data_loaders["test"]):
             img, label = img.to(self.device), label.to(self.device)
