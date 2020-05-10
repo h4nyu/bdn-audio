@@ -484,6 +484,7 @@ class UNet2d(nn.Module):
 
         self.outc = nn.Sequential(
             SENextBottleneck2d(base_channel, base_channel),
+            SENextBottleneck2d(base_channel, base_channel),
             nn.Conv2d(base_channel, 1, kernel_size=1, stride=1, padding=0),
         )
 
