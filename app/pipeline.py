@@ -181,7 +181,7 @@ def train(fold_idx: int, lr:float, check_interval:int) -> None:
 
 
 def pre_submit(num_models: int) -> None:
-    raw_audios = load_audios(RAW_TGT_DIR)[:26]
+    raw_audios = load_audios(RAW_TGT_DIR)[:19]
     noise = Noise()
     noised_audios = [Audio(x.id, noise(x.spectrogram)) for x in raw_audios]
 

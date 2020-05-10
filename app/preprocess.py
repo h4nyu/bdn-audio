@@ -36,7 +36,7 @@ def load_audios(dirctory: str) -> Audios:
             id = matched.group(0)
             spectrogram = np.load(p)
             audios.append(Audio(id, spectrogram))
-    return audios
+    return sorted(audios, key = lambda x: x.id)
 
 
 def save_wav(spectrogram: t.Any, path: t.Union[str, Path]) -> None:
