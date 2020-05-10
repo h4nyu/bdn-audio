@@ -64,10 +64,9 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        #  self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        #      self.optimizer, verbose=True, patience=3, eps=lr * 1e-3, factor=0.5
-        #  )
-        self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, eta_min=lr*1e-3, T_max=20)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, verbose=True, patience=3, eps=lr * 1e-3, factor=0.5
+        )
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
@@ -159,8 +158,7 @@ class Trainer:
             train_loss = self.train_one_epoch()
             eval_loss, base_score, score = self.eval_one_epoch()
             logger.info(f"{epoch=} {train_loss=} {eval_loss=} {base_score=} {score=}")
-            #  self.scheduler.step(train_loss)
-            self.scheduler.step()
+            self.scheduler.step(train_loss)
             if score < self.best_score:
                 logger.info("update model")
                 self.save_checkpoint()
