@@ -107,7 +107,7 @@ class Trainer:
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
         #  mse = MSELoss(reduction="none")
         #  mae = L1Loss(reduction="none")
-        loss1 = MSELoss()(x, y).mean() + MSELoss()(x.mean(), y.mean()) * 100 + MSELoss()(x.max(), y.max()) / 100
+        loss1 = MSELoss()(x, y).mean() + MSELoss()(x.mean(), y.mean()) * 100
         return loss1
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
