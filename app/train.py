@@ -21,7 +21,7 @@ from datetime import datetime
 
 #  from .models import UNet1d as NNModel
 
-from .models import UNet2d as NNModel
+from .models import UNet1d as NNModel
 
 #  from .models import UNet2d as NNModel
 
@@ -45,7 +45,7 @@ class Trainer:
         self.device = DEVICE
         resolution = (128, 128)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=lr)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -65,7 +65,7 @@ class Trainer:
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, verbose=True, patience=3, eps=lr * 1e-3, factor=0.5
+            self.optimizer, verbose=True, patience=5, eps=lr * 1e-3, factor=0.5
         )
         train_len = len(train_data)
         logger.info(f"{train_len=}")

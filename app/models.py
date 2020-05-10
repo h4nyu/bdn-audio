@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-from torch.nn import ReLU as Activation
+from torch.nn import LeakyReLU as Activation
 
 
 class LogCoshLoss(torch.nn.Module):
@@ -159,6 +159,7 @@ class SENextBottleneck2d(nn.Module):
     ) -> None:
         super().__init__()
         mid_channels = out_channels // reduction
+
         self.conv1 = ConvBR2d(
             in_channels, out_channels, 3, stride=1, dilation=dilation, padding=padding
         )
@@ -194,7 +195,6 @@ class SENextBottleneck2d(nn.Module):
         x = self.activation(x)
         return x
 
-
 class SENextBottleneck1d(nn.Module):
     pool: t.Union[None, nn.MaxPool1d, nn.AvgPool1d]
 
@@ -203,26 +203,23 @@ class SENextBottleneck1d(nn.Module):
         in_channels: int,
         out_channels: int,
         stride: int = 1,
+        groups: int = 32,
         reduction: int = 16,
         pool: t.Literal["max", "avg"] = "max",
         is_shortcut: bool = False,
     ) -> None:
         super().__init__()
-        mid_channels = out_channels // reduction
-        self.conv1 = ConvBR1d(
-            in_channels, out_channels, kernel_size=3, stride=1, padding=1
-        )
-        self.conv2 = ConvBR1d(
-            out_channels, out_channels, kernel_size=3, stride=1, padding=1
-        )
-        self.se = SCSE1d(out_channels, reduction)
+        mid_channels = groups * (out_channels // 2 // groups)
+        self.conv1 = ConvBR1d(in_channels, mid_channels, 1, 0, 1,)
+        self.conv2 = ConvBR1d(mid_channels, mid_channels, 3, 1, 1, groups=groups)
+        self.conv3 = ConvBR1d(mid_channels, out_channels, 1, 0, 1, is_activation=False)
+        self.se = CSE1d(out_channels, reduction)
         self.stride = stride
         self.is_shortcut = is_shortcut
         if self.is_shortcut:
             self.shortcut = ConvBR1d(
                 in_channels, out_channels, 1, 0, 1, is_activation=False
             )
-        self.activation = Activation(inplace=True)
         if stride > 1:
             if pool == "max":
                 self.pool = nn.MaxPool1d(stride, stride)
@@ -234,13 +231,15 @@ class SENextBottleneck1d(nn.Module):
         s = self.conv2(s)
         if self.stride > 1:
             s = self.pool(s)
+        s = self.conv3(s)
         s = self.se(s)
         if self.is_shortcut:
             if self.stride > 1:
                 x = F.avg_pool1d(x, self.stride, self.stride)  # avg
             x = self.shortcut(x)
         x = x + s
-        x = self.activation(x)
+        x = F.relu(x, inplace=True)
+
         return x
 
 
@@ -253,6 +252,7 @@ class ConvBR1d(nn.Module):
         padding: int = 0,
         dilation: int = 1,
         stride: int = 1,
+        groups: int = 1,
         is_activation: bool = True,
     ) -> None:
         super().__init__()
@@ -263,6 +263,7 @@ class ConvBR1d(nn.Module):
             padding=padding,
             dilation=dilation,
             stride=stride,
+            groups=groups,
             bias=True,
         )
         self.bn = nn.BatchNorm1d(out_channels)
@@ -293,6 +294,12 @@ class Down1d(nn.Module):
                 stride=2,
                 is_shortcut=True,
                 pool=pool,
+            ),
+            SENextBottleneck1d(
+                in_channels=out_channels,
+                out_channels=out_channels,
+                stride=1,
+                is_shortcut=False,
             ),
         )
 
@@ -421,15 +428,15 @@ class Up2d(nn.Module):
 class UNet1d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        base_channel = 128 * 1
+        base_channel = 128
 
         self.inc = nn.Sequential(
-            nn.Conv1d(
+            ConvBR1d(
                 in_channels=in_channels,
                 out_channels=base_channel,
                 kernel_size=3,
                 stride=1,
-                padding=2,
+                padding=1,
             ),
         )
 
@@ -437,16 +444,15 @@ class UNet1d(nn.Module):
         self.down1 = Down1d(base_channel, base_channel * 2, pool="max")
         self.down2 = Down1d(base_channel * 2, base_channel * 4, pool="max")
         self.down3 = Down1d(base_channel * 4, base_channel * 8, pool="max")
-        self.down4 = Down1d(base_channel * 8, base_channel * 16, pool="max")
-        self.center = SENextBottleneck1d(base_channel * 16, base_channel * 16)
-        self.up4 = Up1d(base_channel * 16, base_channel * 8, bilinear=False, merge=True)
+        self.center = SENextBottleneck1d(base_channel * 8, base_channel * 8)
         self.up3 = Up1d(base_channel * 8, base_channel * 4, bilinear=False, merge=True)
         self.up2 = Up1d(base_channel * 4, base_channel * 2, bilinear=False, merge=True)
         self.up1 = Up1d(base_channel * 2, base_channel, bilinear=False, merge=True)
 
         self.outc = nn.Sequential(
-            nn.Conv1d(base_channel, out_channels, kernel_size=3, stride=1, padding=0),
-            nn.Hardtanh(min_val=1e-10, max_val=1.0),
+            SENextBottleneck1d(base_channel, base_channel),
+            nn.Conv1d(base_channel, out_channels, kernel_size=1, stride=1, padding=0),
+            nn.Sigmoid(),
         )
 
     def forward(self, x):  # type: ignore
@@ -454,9 +460,7 @@ class UNet1d(nn.Module):
         n1 = self.down1(n0)  # [B, 128, L//2]
         n2 = self.down2(n1)  # [B, 128, L//2]
         n3 = self.down3(n2)  # [B, 128, L//2]
-        n4 = self.down4(n3)  # [B, 128, L//2]
-        n4 = self.center(n4)  # [B, 128, L//
-        n = self.up4(n4, n3)
+        n3 = self.center(n3)  # [B, 128, L//
         n = self.up3(n3, n2)
         n = self.up2(n2, n1)
         n = self.up1(n1, n0)
@@ -467,7 +471,7 @@ class UNet1d(nn.Module):
 class UNet2d(nn.Module):
     def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        base_channel = 16
+        base_channel = 32
 
         self.in_channels = in_channels
         self.inc = nn.Sequential(
