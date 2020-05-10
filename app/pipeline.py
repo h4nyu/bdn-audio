@@ -39,8 +39,8 @@ def eda_noise() -> t.Any:
     clean_audios = load_audios(RAW_TGT_DIR)
     noise_audios = load_audios(NOISED_TGT_DIR)
     for index in range(0, 2):
-        clean_sp = clean_audios[index].spectrogram[:, :5]
-        noise_sp = noise_audios[index].spectrogram[:, :5]
+        clean_sp = clean_audios[index].spectrogram[:, :128]
+        noise_sp = noise_audios[index].spectrogram[:, :128]
         generated_noise_sp = Noise()(clean_sp)
         plot_spectrograms(
             [np.log(i) for i in [clean_sp, noise_sp]],
@@ -48,14 +48,16 @@ def eda_noise() -> t.Any:
         )
         clean_mean = clean_sp.mean()
         noised_mean = noise_sp.mean()
-        print(f"{clean_mean=} {noised_mean=}")
+        generated_noise_mean = generated_noise_sp.mean()
+        print(f"{clean_mean=} {noised_mean=} {generated_noise_mean=}")
 
         clean_std = clean_sp.std()
         noised_std = noise_sp.std()
-        print(f"{clean_std=} {noised_std=}")
+        generated_noise_std = generated_noise_sp.std()
+        print(f"{clean_std=} {noised_std=} {generated_noise_std=}")
 
         fig, axs = plt.subplots(3, sharex=True)
-        bins = 500
+        bins = 100
         axs[0].hist(clean_sp.flatten(), bins=bins)
         axs[0].set_title("clean")
 
@@ -169,12 +171,12 @@ def mel_to_audio() -> None:
     print(a)
 
 
-def train(fold_idx: int) -> None:
+def train(fold_idx: int, lr:float) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)
     #  noised_audios = load_audios(NOISED_TGT_DIR)
     kf = KFold(n_split=4)
     train, valid = list(kf(raw_audios))[fold_idx]
-    t = Trainer(train, valid, output_dir=Path(f"/store/model-{fold_idx}"))
+    t = Trainer(train, valid, output_dir=Path(f"/store/model-{fold_idx}"), lr=lr)
     t.train(8000)
 
 

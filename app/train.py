@@ -41,17 +41,17 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 
 
 class Trainer:
-    def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path) -> None:
+    def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path, lr:float=1e-2) -> None:
         self.device = DEVICE
         resolution = (128, 128)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=0.01, weight_decay=0.01)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=lr, weight_decay=0.01)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                Dataset(train_data * 10, resolution=resolution, mode="train",),
+                Dataset(train_data * 5, resolution=resolution, mode="train",),
                 shuffle=True,
-                batch_size=8,
+                batch_size=16,
                 drop_last=True,
             ),
             "test": DataLoader(
@@ -64,10 +64,10 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, verbose=True, patience=3, eps=1e-7, factor=0.5
-        )
-        #  self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, eta_min=1e-4, T_max=10)
+        #  self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        #      self.optimizer, verbose=True, patience=3, eps=lr * 1e-3, factor=0.5
+        #  )
+        self.scheduler = optim.lr_scheduler.CosineAnnealingLR(self.optimizer, eta_min=lr*1e-3, T_max=20)
         train_len = len(train_data)
         logger.info(f"{train_len=}")
         test_len = len(test_data)
@@ -107,7 +107,7 @@ class Trainer:
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
         #  mse = MSELoss(reduction="none")
         #  mae = L1Loss(reduction="none")
-        loss1 = MSELoss()(x, y).mean()
+        loss1 = MSELoss()(x, y).mean() + MSELoss()(x.mean(), y.mean()) * 100 + MSELoss()(x.max(), y.max()) / 100
         return loss1
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
@@ -159,8 +159,8 @@ class Trainer:
             train_loss = self.train_one_epoch()
             eval_loss, base_score, score = self.eval_one_epoch()
             logger.info(f"{epoch=} {train_loss=} {eval_loss=} {base_score=} {score=}")
-            self.scheduler.step(train_loss)
-            #  self.scheduler.step()
+            #  self.scheduler.step(train_loss)
+            self.scheduler.step()
             if score < self.best_score:
                 logger.info("update model")
                 self.save_checkpoint()

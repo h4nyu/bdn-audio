@@ -490,6 +490,7 @@ class UNet2d(nn.Module):
         self.outc = nn.Sequential(
             SENextBottleneck2d(base_channel, base_channel),
             nn.Conv2d(base_channel, 1, kernel_size=1, stride=1, padding=0),
+            nn.Tanh(),
         )
 
     def forward(self, x):  # type: ignore
@@ -503,7 +504,7 @@ class UNet2d(nn.Module):
         n = self.up2(n2, n1)
         n = self.up1(n1, n0)
         n = self.outc(n)
-        x = n + x
+        x = torch.abs(n + x)
         x = x.view(*input_shape)
         return x
 
