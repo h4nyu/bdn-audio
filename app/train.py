@@ -136,7 +136,6 @@ class Trainer:
         epoch_loss = epoch_loss / count
         score = score / count
         base_score = base_score / count
-        score_diff = base_score - score
         return epoch_loss, base_score, score
 
     def load_checkpoint(self,) -> None:
