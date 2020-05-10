@@ -160,8 +160,8 @@ class Trainer:
             self.scheduler.step()
             if score < self.best_score:
                 logger.info("update model")
-                self.save_checkpoint()
                 self.best_score = score
+                self.save_checkpoint()
 
 
 class Predict:
