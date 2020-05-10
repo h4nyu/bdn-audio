@@ -203,8 +203,7 @@ def pre_submit(num_models: int) -> None:
 
         y_gt = gt.spectrogram
         merged = Vote("mean")(y_spes)
-        merged = Merge(NOISE_FLOOR)(x_sp, merged)
-        print(np.max(merged), np.max(y_gt))
+        print(np.max(merged), np.max(y_gt), np.max(x_sp))
         mse = Mse()
         score += mse(merged, y_gt)
         base_score += mse(x_sp, y_gt)
@@ -233,7 +232,6 @@ def submit(num_models: int) -> None:
         length += x_sp.shape[1]
         y_spes = [y.spectrogram for y in ys]
         merged = np.max(np.stack(y_spes), axis=0)
-        merged = Merge(NOISE_FLOOR)(x_sp, merged)
         print(np.max(merged), np.max(x_sp))
 
         plot_spectrograms(
