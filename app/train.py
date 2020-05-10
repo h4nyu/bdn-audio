@@ -21,7 +21,7 @@ from datetime import datetime
 
 #  from .models import UNet1d as NNModel
 
-from .models import UNet1d as NNModel
+from .models import UNet2d as NNModel
 
 #  from .models import UNet2d as NNModel
 

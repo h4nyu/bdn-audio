@@ -45,6 +45,7 @@ class ConvBR2d(nn.Module):
         kernel_size: int = 1,
         padding: int = 0,
         dilation: int = 1,
+        groups: int = 1,
         stride: int = 1,
         is_activation: bool = True,
     ) -> None:
@@ -56,6 +57,7 @@ class ConvBR2d(nn.Module):
             padding=padding,
             dilation=dilation,
             stride=stride,
+            groups=groups,
             bias=False,
         )
         self.bn = nn.BatchNorm2d(out_channels)
@@ -151,21 +153,16 @@ class SENextBottleneck2d(nn.Module):
         in_channels: int,
         out_channels: int,
         stride: int = 1,
-        reduction: int = 4,
-        dilation: int = 1,
-        padding: int = 1,
+        reduction: int = 8,
+        groups: int = 16,
         pool: t.Literal["max", "avg"] = "max",
         is_shortcut: bool = True,
     ) -> None:
         super().__init__()
-        mid_channels = out_channels // reduction
-
-        self.conv1 = ConvBR2d(
-            in_channels, out_channels, 3, stride=1, dilation=dilation, padding=padding
-        )
-        self.conv2 = ConvBR2d(
-            in_channels, out_channels, 3, stride=1, dilation=dilation, padding=padding
-        )
+        mid_channels = groups * (out_channels // 2 // groups)
+        self.conv1 = ConvBR2d(in_channels, mid_channels, 1, 0, 1,)
+        self.conv2 = ConvBR2d(mid_channels, mid_channels, 3, 1, 1, groups=groups)
+        self.conv3 = ConvBR2d(mid_channels, out_channels, 1, 0, 1, is_activation=False)
         self.se = CSE2d(out_channels, reduction)
         self.stride = stride
         self.is_shortcut = is_shortcut
@@ -182,11 +179,11 @@ class SENextBottleneck2d(nn.Module):
 
     def forward(self, x):  # type: ignore
         s = self.conv1(x)
-        s = self.conv2(x)
+        s = self.conv2(s)
         if self.stride > 1:
             s = self.pool(s)
+        s = self.conv3(s)
         s = self.se(s)
-        #
         if self.is_shortcut:
             if self.stride > 1:
                 x = F.avg_pool2d(x, self.stride, self.stride)  # avg
@@ -319,8 +316,6 @@ class Down2d(nn.Module):
             SENextBottleneck2d(
                 in_channels=in_channels,
                 out_channels=out_channels,
-                dilation=1,
-                padding=1,
                 stride=2,
                 is_shortcut=True,
                 pool=pool,
@@ -328,8 +323,6 @@ class Down2d(nn.Module):
             SENextBottleneck2d(
                 in_channels=out_channels,
                 out_channels=out_channels,
-                dilation=1,
-                padding=1,
                 stride=1,
                 is_shortcut=False,
             ),
@@ -486,8 +479,6 @@ class UNet2d(nn.Module):
         )
         self.down1 = Down2d(base_channel, base_channel * 2, pool="max")
         self.down2 = Down2d(base_channel * 2, base_channel * 4, pool="max")
-        self.down3 = Down2d(base_channel * 4, base_channel * 8, pool="avg")
-        self.up3 = Up2d(base_channel * 8, base_channel * 4, bilinear=True, merge=True)
         self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=True, merge=True)
         self.up1 = Up2d(base_channel * 2, base_channel, bilinear=True, merge=True)
 
@@ -503,8 +494,6 @@ class UNet2d(nn.Module):
         n0 = self.inc(x)  # [B, 64, L]
         n1 = self.down1(n0)  # [B, 128, L//2]
         n2 = self.down2(n1)  # [B, 128, L//2]
-        n3 = self.down3(n2)  # [B, 128, L//2]
-        n = self.up3(n3, n2)
         n = self.up2(n2, n1)
         n = self.up1(n1, n0)
         n = self.outc(n)
