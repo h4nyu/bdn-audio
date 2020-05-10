@@ -51,8 +51,9 @@ class Dataset(_Dataset):
         if self.mode == "train":
             _, w = raw.shape
             if w < self.resolution[1]:
-                noised = np.concatenate([noised, noised], axis=1)
-                raw = np.concatenate([raw, raw], axis=1)
+                repeat = self.resolution[1] // w + 1
+                noised = np.concatenate([noised] * repeat, axis=1)
+                raw = np.concatenate([raw] * repeat, axis=1)
 
             resized = RandomCrop(height=self.resolution[0], width=self.resolution[1])(
                 image=noised, mask=raw
