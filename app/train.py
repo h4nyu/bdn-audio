@@ -41,7 +41,7 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 
 
 class Trainer:
-    def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path, lr:float=1e-2) -> None:
+    def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path, lr:float=1e-2, check_interval:int=10) -> None:
         self.device = DEVICE
         resolution = (128, 160)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
@@ -49,7 +49,7 @@ class Trainer:
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                Dataset(train_data * 10, resolution=resolution, mode="train",),
+                Dataset(train_data * check_interval, resolution=resolution, mode="train",),
                 shuffle=True,
                 batch_size=32,
                 drop_last=True,

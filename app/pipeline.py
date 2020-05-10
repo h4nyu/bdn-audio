@@ -171,12 +171,12 @@ def mel_to_audio() -> None:
     print(a)
 
 
-def train(fold_idx: int, lr:float) -> None:
+def train(fold_idx: int, lr:float, check_interval:int) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)
     #  noised_audios = load_audios(NOISED_TGT_DIR)
     kf = KFold(n_split=4)
     train, valid = list(kf(raw_audios))[fold_idx]
-    t = Trainer(train, valid, output_dir=Path(f"/store/model-{fold_idx}"), lr=lr)
+    t = Trainer(train, valid, output_dir=Path(f"/store/model-{fold_idx}"), lr=lr, check_interval=check_interval)
     t.train(8000)
 
 
