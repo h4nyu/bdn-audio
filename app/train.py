@@ -45,7 +45,7 @@ class Trainer:
         self.device = DEVICE
         resolution = (128, 160)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)  # type: ignore
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=lr)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(

@@ -60,8 +60,8 @@ class Dataset(_Dataset):
             )
             noised, raw = resized["image"], resized["mask"]
             noised, raw = HFlip1d(p=0.5)(noised, raw)
-            high = np.max(raw) / MAX_POWER
-            noised, raw = RandomScale(p=1, high=high, low=0.7)(noised, raw)
+            #  high = np.max(raw) / MAX_POWER
+            #  noised, raw = RandomScale(p=1, high=high, low=0.7)(noised, raw)
         return noised, raw, scale
 
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, t.Any, t.Any]:
