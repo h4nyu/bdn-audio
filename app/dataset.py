@@ -60,8 +60,6 @@ class Dataset(_Dataset):
             )
             noised, raw = resized["image"], resized["mask"]
             noised, raw = HFlip1d(p=0.5)(noised, raw)
-            #  high = np.max(raw) / MAX_POWER
-            #  noised, raw = RandomScale(p=1, high=high, low=0.7)(noised, raw)
         return noised, raw, scale
 
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, t.Any, t.Any]:
@@ -83,5 +81,4 @@ class PredictDataset(_Dataset):
         scale = MAX_POWER
         sp = (sp) / scale
         hfliped, _ = HFlip1d(p=1)(sp, sp)
-        #  vfliped, _ = VFlip1d(p=1)(sp, sp)
         return sp, hfliped, row.id, scale
