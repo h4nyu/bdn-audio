@@ -180,18 +180,18 @@ def train(fold_idx: int, lr:float, check_interval:int) -> None:
     t.train(8000)
 
 
-def pre_submit(num_models: int) -> None:
+def pre_submit(indices: t.List[int]) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)[:19]
     noise = Noise()
     noised_audios = [Audio(x.id, noise(x.spectrogram)) for x in raw_audios]
 
     submit_dir = Path("/store/pre_submit")
     submit_dir.mkdir(exist_ok=True)
+    print(indices)
     fold_preds = [
         Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)()
         for i
-        #  in range(num_models)
-        in [2]
+        in indices
     ]
     score = 0
     base_score = 0.0
@@ -220,7 +220,7 @@ def pre_submit(num_models: int) -> None:
     print(f"{score=} {base_score=} {length=}")
 
 
-def submit(num_models: int) -> None:
+def submit(*indices: t.List[int]) -> None:
     noised_audios = load_audios(NOISED_TGT_DIR)
     submit_dir = Path("/store/predict")
     submit_dir.mkdir(exist_ok=True)
@@ -228,8 +228,7 @@ def submit(num_models: int) -> None:
     fold_preds = [
         Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)()
         for i
-        #  in range(num_models)
-        in [2]
+        in indices
     ]
     for x, ys in zip(noised_audios, zip(*fold_preds)):
         x_sp = x.spectrogram
