@@ -1,5 +1,6 @@
 from pathlib import Path
 import typing as t
+from .dataset import Dataset, PredictDataset, PseudoDataset
 from .cache import Cache
 from .config import NOISED_TGT_DIR, RAW_TGT_DIR, NOISE_FLOOR
 from . import config
@@ -18,7 +19,7 @@ from .preprocess import (
     plot_spectrograms,
     Vote,
 )
-from .train import Trainer, Predict
+from .train import Trainer, Predict, PseudoTrainer
 from sklearn.linear_model import LinearRegression
 import matplotlib.pyplot as plt
 from concurrent import futures
@@ -173,10 +174,25 @@ def mel_to_audio() -> None:
 
 def train(fold_idx: int, lr:float, check_interval:int) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)
-    #  noised_audios = load_audios(NOISED_TGT_DIR)
+    kf = KFold(n_split=10)
+    train_data, test_data = list(kf(raw_audios))[fold_idx]
+    resolution = (128, 256)
+    train_dataset = Dataset(train_data * check_interval, resolution=resolution, mode="train",)
+    test_dataset = Dataset(test_data, resolution=resolution, mode="test",)
+    t = Trainer(train_dataset, test_dataset, output_dir=Path(f"/store/model-{fold_idx}"), lr=lr, check_interval=check_interval)
+    t.train(8000)
+
+def pseudo_train(fold_idx: int, lr:float, check_interval:int) -> None:
+    raw_audios = load_audios(RAW_TGT_DIR)
+    y_pseudo = load_audios("/store/submit")
+    x_pseudo = load_audios(NOISED_TGT_DIR)
+    resolution = (128, 160)
     kf = KFold(n_split=4)
-    train, valid = list(kf(raw_audios))[fold_idx]
-    t = Trainer(train, valid, output_dir=Path(f"/store/model-{fold_idx}"), lr=lr, check_interval=check_interval)
+    train_data, test_data = list(kf(raw_audios))[fold_idx]
+    train_dataset = Dataset(train_data * check_interval, resolution=resolution, mode="train",)
+    test_dataset = Dataset(test_data, resolution=resolution, mode="train",)
+    pseudo_dataset = PseudoDataset(x_pseudo, y_pseudo,resolution=resolution)
+    t = PseudoTrainer(train_dataset, test_dataset, pseudo_dataset,output_dir=Path(f"/store/pseudo-model-{fold_idx}"), lr=lr, check_interval=check_interval)
     t.train(8000)
 
 
@@ -187,9 +203,8 @@ def pre_submit(indices: t.List[int]) -> None:
 
     submit_dir = Path("/store/pre_submit")
     submit_dir.mkdir(exist_ok=True)
-    print(indices)
     fold_preds = [
-        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)()
+        Predict(f"/store/model-{i}/model.pth", noised_audios, str(submit_dir))()
         for i
         in indices
     ]
@@ -220,13 +235,13 @@ def pre_submit(indices: t.List[int]) -> None:
     print(f"{score=} {base_score=} {length=}")
 
 
-def submit(*indices: t.List[int]) -> None:
+def submit(indices: t.List[int]) -> None:
     noised_audios = load_audios(NOISED_TGT_DIR)
-    submit_dir = Path("/store/predict")
+    submit_dir = Path("/store/submit")
     submit_dir.mkdir(exist_ok=True)
     length = 0
     fold_preds = [
-        Predict(f"/store/model-{i}/model.pth", noised_audios, submit_dir)()
+        Predict(f"/store/model-{i}/model.pth", noised_audios, str(submit_dir))()
         for i
         in indices
     ]

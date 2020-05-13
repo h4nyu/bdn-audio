@@ -2,6 +2,7 @@ import typer
 from .pipeline import (
     eda,
     train,
+    pseudo_train,
     dummy_aug,
     submit,
     mel_to_audio,
@@ -14,6 +15,7 @@ app = typer.Typer()
 
 app.command()(eda)
 app.command()(train)
+app.command()(pseudo_train)
 app.command()(dummy_aug)
 app.command()(submit)
 app.command()(mel_to_audio)
