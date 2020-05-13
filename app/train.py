@@ -64,8 +64,8 @@ class Trainer:
         self.output_dir = output_dir
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
-        self.scheduler = optim.lr_scheduler.CosineAnnealingLR(
-            self.optimizer, eta_min=lr * 1e-1, T_max=20
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+            self.optimizer, eps=lr * 1e-1, patience=10
         )
         train_len = len(train_data)
         logger.info(f"{train_len=}")
@@ -104,8 +104,6 @@ class Trainer:
         return epoch_loss
 
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
-        #  mse = MSELoss(reduction="none")
-        #  mae = L1Loss(reduction="none")
         loss1 = MSELoss()(x, y).mean()
         return loss1
 
@@ -157,7 +155,7 @@ class Trainer:
             train_loss = self.train_one_epoch()
             eval_loss, base_score, score = self.eval_one_epoch()
             logger.info(f"{epoch=} {train_loss=} {eval_loss=} {base_score=} {score=}")
-            self.scheduler.step()
+            self.scheduler.step(train_loss)
             if score < self.best_score:
                 logger.info("update model")
                 self.best_score = score
