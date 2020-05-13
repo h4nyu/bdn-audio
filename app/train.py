@@ -3,7 +3,7 @@ import typing as t
 import json
 import os
 from .entities import Audios, Audio
-from .dataset import Dataset, PredictDataset
+from .dataset import Dataset, PredictDataset, PseudoDataset
 from .preprocess import HFlip1d, VFlip1d, Vote
 import os
 import torch
@@ -11,7 +11,7 @@ from pathlib import Path
 from torch import optim
 from torch import nn
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader, ConcatDataset
 from sklearn.metrics import mean_squared_error
 
 #  from torch.optim.lr_scheduler import CosineAnnealingLR as LRScheduler
@@ -41,21 +41,20 @@ DataLoaders = t.TypedDict("DataLoaders", {"train": DataLoader, "test": DataLoade
 
 
 class Trainer:
-    def __init__(self, train_data: Audios, test_data: Audios, output_dir: Path, lr:float=1e-2, check_interval:int=10) -> None:
+    def __init__(self, train_dataset: Dataset, test_dataset: Dataset, output_dir: Path, lr:float=1e-2, check_interval:int=10) -> None:
         self.device = DEVICE
-        resolution = (128, 160)
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
         self.optimizer = optim.AdamW(self.model.parameters(), lr=lr)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
-                Dataset(train_data * check_interval, resolution=resolution, mode="train",),
+                train_dataset,
                 shuffle=True,
-                batch_size=32,
+                batch_size=24,
                 drop_last=True,
             ),
             "test": DataLoader(
-                Dataset(test_data, resolution=resolution, mode="test",),
+                test_dataset,
                 shuffle=True,
                 batch_size=1,
             ),
@@ -67,10 +66,6 @@ class Trainer:
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
             self.optimizer, eps=lr * 1e-1, patience=10
         )
-        train_len = len(train_data)
-        logger.info(f"{train_len=}")
-        test_len = len(test_data)
-        logger.info(f"{test_len=}")
 
         if self.checkpoint_path.exists():
             self.load_checkpoint()
@@ -160,6 +155,34 @@ class Trainer:
                 logger.info("update model")
                 self.best_score = score
                 self.save_checkpoint()
+
+class PseudoTrainer(Trainer):
+    def __init__(
+        self,
+        train_dataset: Dataset,
+        test_dataset: Dataset,
+        pseudo_dataset: PseudoDataset,
+        output_dir: Path,
+        lr:float=1e-2,
+        check_interval:int=10
+    ) -> None:
+        super().__init__(train_dataset, test_dataset, output_dir, lr, check_interval)
+        self.data_loaders: DataLoaders = {
+            "train": DataLoader(
+                ConcatDataset([
+                    train_dataset,
+                    pseudo_dataset,
+                ]),
+                shuffle=True,
+                batch_size=32,
+                drop_last=True,
+            ),
+            "test": DataLoader(
+                test_dataset,
+                shuffle=True,
+                batch_size=1,
+            ),
+        }
 
 
 class Predict:
