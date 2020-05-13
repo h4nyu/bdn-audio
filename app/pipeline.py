@@ -220,7 +220,7 @@ def pre_submit(indices: t.List[int]) -> None:
     print(f"{score=} {base_score=} {length=}")
 
 
-def submit(*indices: t.List[int]) -> None:
+def submit(indices: t.List[int]) -> None:
     noised_audios = load_audios(NOISED_TGT_DIR)
     submit_dir = Path("/store/predict")
     submit_dir.mkdir(exist_ok=True)
