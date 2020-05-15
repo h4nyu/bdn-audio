@@ -176,8 +176,8 @@ def train(fold_idx: int, lr:float, check_interval:int) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)
     kf = KFold(n_split=10)
     train_data, test_data = list(kf(raw_audios))[fold_idx]
-    resolution = (128, 256)
-    train_dataset = Dataset(train_data * check_interval, resolution=resolution, mode="train",)
+    resolution = (128, 32)
+    train_dataset = Dataset(raw_audios * check_interval, resolution=resolution, mode="train",)
     test_dataset = Dataset(test_data, resolution=resolution, mode="test",)
     t = Trainer(train_dataset, test_dataset, output_dir=Path(f"/store/model-{fold_idx}"), lr=lr, check_interval=check_interval)
     t.train(8000)
@@ -186,7 +186,7 @@ def pseudo_train(fold_idx: int, lr:float, check_interval:int) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)
     y_pseudo = load_audios("/store/submit")
     x_pseudo = load_audios(NOISED_TGT_DIR)
-    resolution = (128, 160)
+    resolution = (128, 128)
     kf = KFold(n_split=4)
     train_data, test_data = list(kf(raw_audios))[fold_idx]
     train_dataset = Dataset(train_data * check_interval, resolution=resolution, mode="train",)

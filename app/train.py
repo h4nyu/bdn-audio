@@ -44,13 +44,13 @@ class Trainer:
     def __init__(self, train_dataset: Dataset, test_dataset: Dataset, output_dir: Path, lr:float=1e-2, check_interval:int=10) -> None:
         self.device = DEVICE
         self.model = NNModel(in_channels=128, out_channels=128).double().to(DEVICE)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=lr)  # type: ignore
+        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
                 train_dataset,
                 shuffle=True,
-                batch_size=24,
+                batch_size=32,
                 drop_last=True,
             ),
             "test": DataLoader(
@@ -64,7 +64,7 @@ class Trainer:
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, eps=lr * 1e-1, patience=10
+            self.optimizer, patience=10, verbose=True
         )
 
         if self.checkpoint_path.exists():
@@ -99,7 +99,7 @@ class Trainer:
         return epoch_loss
 
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
-        loss1 = MSELoss()(x, y).mean()
+        loss1 = MSELoss()(x, y).mean() + MSELoss()(x.mean(), y.mean()).mean()
         return loss1
 
     def eval_one_epoch(self) -> t.Tuple[float, float]:
@@ -150,7 +150,7 @@ class Trainer:
             train_loss = self.train_one_epoch()
             eval_loss, base_score, score = self.eval_one_epoch()
             logger.info(f"{epoch=} {train_loss=} {eval_loss=} {base_score=} {score=}")
-            self.scheduler.step(train_loss)
+            #  self.scheduler.step(train_loss)
             if score < self.best_score:
                 logger.info("update model")
                 self.best_score = score
@@ -201,18 +201,17 @@ class Predict:
         self.model.load_state_dict(torch.load(self.model_path))
         self.model.eval()
         predict_audios: Audios = []
-        hflip = HFlip1d(p=1)
-        vflip = VFlip1d(p=1)
         max_vote = Vote("max")
         mean_vote = Vote("mean")
         with torch.no_grad():
-            for x, hfliped, ids, scales in self.data_loader:
+            for x, ids, scales in self.data_loader:
                 id = ids[0]
                 scale = scales[0].item()
-                x, hfliped = x.to(DEVICE), hfliped.to(DEVICE)
+                x = x.to(DEVICE)
                 y = self.model(x)[0].cpu().numpy()
-                h_y = self.model(hfliped)[0].cpu().numpy()
-                ys = [y, hflip(h_y, h_y)[0]]
+                h_y = self.model(x.flip(1)).flip(1)[0].cpu().numpy()
+                v_y = self.model(x.flip(2)).flip(2)[0].cpu().numpy()
+                ys = [y, h_y, v_y]
                 y = mean_vote(ys)
                 y = y * scale
                 predict_audios.append(Audio(id, y))

@@ -108,6 +108,7 @@ class Dataset(_Dataset):
             )
             noised, raw = resized["image"], resized["mask"]
             noised, raw = HFlip1d(p=0.5)(noised, raw)
+            noised, raw = VFlip1d(p=0.5)(noised, raw)
         return noised, raw, scale
 
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, t.Any, t.Any]:
@@ -128,5 +129,4 @@ class PredictDataset(_Dataset):
         _max = np.max(sp)
         scale = 1
         sp = (sp) / scale
-        hfliped, _ = HFlip1d(p=1)(sp, sp)
-        return sp, hfliped, row.id, scale
+        return sp, row.id, scale
