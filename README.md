@@ -1,10 +1,23 @@
 https://athletix.run/challenges/czaMEOxQGg
 
-execute commands in container 
+unzip dataset into `/store`
+
+Train models from fold 0 to 3.
+Score shoud be around 0.5.
+
 ```sh
+# app train <fold_index> <lr> <check_interval>
 app train 0 1e-3 5
+```
 
+Check train score with all models.
+```sh
+# app pre-submit <fold_indices>
+app pre-submit 0 1 2 3
+```
 
+Inference target with all models.
 
-docker-compose run --rm app bash app submit 0 1 2 3
+```sh
+app pre-submit 0 1 2 3
 ```
