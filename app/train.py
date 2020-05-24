@@ -95,6 +95,7 @@ class Trainer:
 
     def eval_one_epoch(self) -> t.Tuple[float, float, float]:
         self.model.eval()
+        mean_vote = Vote("mean")
         epoch = self.epoch
         epoch_loss = 0.0
         score = 0.0
@@ -106,9 +107,14 @@ class Trainer:
             with torch.no_grad():
                 pred = self.model(img)
                 loss = self.objective(pred, label)
+                pred = self.model(img)[0].cpu().numpy()
+                h_pred = self.model(img.flip(1)).flip(1)[0].cpu().numpy()
+                v_pred = self.model(img.flip(2)).flip(2)[0].cpu().numpy()
+                preds = [pred, h_pred, v_pred]
+                pred = mean_vote(preds)
                 epoch_loss += loss.item()
-                x, pred, y = [
-                    np.abs(i[0].detach().cpu().numpy()) for i in [img, pred, label]
+                x, y = [
+                    np.abs(i[0].detach().cpu().numpy()) for i in [img, label]
                 ]
                 score += mean_squared_error(pred, y,)
                 base_score += mean_squared_error(x, y,)
