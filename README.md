@@ -1,6 +1,6 @@
 https://athletix.run/challenges/czaMEOxQGg
 
-unzip dataset into `/store`
+Unzip dataset into `/store`
 
 Train models from fold 0 to 3.
 Score shoud be around 0.5.
@@ -17,7 +17,9 @@ app pre-submit 0 1 2 3
 ```
 
 Inference target with all models.
+Inference Outputs are saved in `/store/submit`*.
 
 ```sh
-app pre-submit 0 1 2 3
+# app submit <fold_indices>
+app submit 0 1 2 3
 ```
