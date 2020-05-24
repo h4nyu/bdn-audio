@@ -16,8 +16,7 @@ app train 0 1e-3 5
 # app pre-submit <fold_indices>
 app pre-submit 0 1 2 3
 ```
-4. The target can be derived by all of these models.
-The predicted outputs will then be saved in `/store/submit`.
+4.  The target can be derived by all of these models. The inference outputs will then be saved in `/store/submit`.
 
 ```sh
 # app submit <fold_indices>
