@@ -34,7 +34,7 @@ def load_audios(dirctory: str) -> Audios:
         matched = re.search(r"\d+", p)
         if matched is not None:
             id = matched.group(0)
-            spectrogram = np.load(p)
+            spectrogram = np.load(p).astype(np.float32)
             audios.append(Audio(id, spectrogram))
     return sorted(audios, key=lambda x: x.id)
 
@@ -109,7 +109,6 @@ class Noise:
         self.p = NOISE_P
 
     def __call__(self, spectrogram: t.Any) -> t.Any:
-        value = np.mean(spectrogram)
         mask = np.random.choice(
             [False, True], size=spectrogram.shape, p=[self.p, (1 - self.p)]
         )

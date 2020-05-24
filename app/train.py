@@ -40,8 +40,8 @@ class Trainer:
         check_interval: int = 10,
     ) -> None:
         self.device = DEVICE
-        self.model = NNModel().double().to(DEVICE)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=lr)  # type: ignore
+        self.model = NNModel().to(DEVICE)
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=lr)  # type: ignore
         self.epoch = 1
         self.data_loaders: DataLoaders = {
             "train": DataLoader(
@@ -54,7 +54,7 @@ class Trainer:
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, patience=5, verbose=True, factor=0.5,
+            self.optimizer, patience=10, verbose=True, factor=0.5, eps=lr*1e-2
         )
 
         if self.checkpoint_path.exists():
@@ -68,7 +68,7 @@ class Trainer:
         base_score = 0.0
         for img, label, in tqdm(self.data_loaders["train"]):
             count = count + 1
-            img, label = img.to(self.device), label.to(self.device)
+            img, label = img.to(self.device).float(), label.to(self.device).float()
             pred = self.model(img)
             loss = self.objective(pred, label)
             loss.backward()
@@ -89,6 +89,7 @@ class Trainer:
         return epoch_loss
 
     def objective(self, x: t.Any, y: t.Any) -> t.Any:
+        #  loss = MSELoss()(x, y).mean() + MSELoss()(y.mean(), x.mean()).mean()
         loss = MSELoss()(x, y).mean()
         return loss
 
@@ -100,7 +101,7 @@ class Trainer:
         base_score = 0.0
         count = 0
         for img, label, in tqdm(self.data_loaders["test"]):
-            img, label = img.to(self.device), label.to(self.device)
+            img, label = img.to(self.device).float(), label.to(self.device).float()
             count += 1
             with torch.no_grad():
                 pred = self.model(img)
