@@ -54,7 +54,7 @@ class Trainer:
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, patience=5, verbose=True
+            self.optimizer, patience=5, verbose=True, factor=0.5,
         )
 
         if self.checkpoint_path.exists():
