@@ -17,7 +17,7 @@ app pre-submit 0 1 2 3
 ```
 
 Inference target with all models.
-Inference Outputs are saved in `/store/submit`*.
+Inference Outputs are saved in `/store/submit`.
 
 ```sh
 # app submit <fold_indices>
