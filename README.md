@@ -1,4 +1,4 @@
-https://athletix.run/challenges/czaMEOxQGg
+https://athletix.run/challenges/czaMEOxQG
 
 Unzip dataset into `/store`
 
