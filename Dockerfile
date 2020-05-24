@@ -1,7 +1,5 @@
 FROM python:3.8-slim
 
-
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gnupg2 curl ca-certificates gcc libc-dev unzip libgtk2.0-dev libsndfile1-dev && \
     curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub | apt-key add - && \

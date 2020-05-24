@@ -17,9 +17,9 @@ import matplotlib.pyplot as plt
 from app.config import (
     NOISED_TGT_DIR,
     RAW_TGT_DIR,
-    NOISE_P_RANGE,
-    NOISE_HIGH_RANGE,
-    NOISE_LOW_RANGE,
+    NOISE_P,
+    NOISE_HIGH,
+    NOISE_LOW,
 )
 from librosa import display
 from librosa.feature.inverse import mel_to_audio
@@ -36,7 +36,7 @@ def load_audios(dirctory: str) -> Audios:
             id = matched.group(0)
             spectrogram = np.load(p)
             audios.append(Audio(id, spectrogram))
-    return sorted(audios, key = lambda x: x.id)
+    return sorted(audios, key=lambda x: x.id)
 
 
 def save_wav(spectrogram: t.Any, path: t.Union[str, Path]) -> None:
@@ -104,9 +104,9 @@ class KFold:
 
 class Noise:
     def __init__(self) -> None:
-        self.high = np.random.uniform(high=NOISE_HIGH_RANGE[0], low=NOISE_HIGH_RANGE[1])
-        self.low = np.random.uniform(high=NOISE_LOW_RANGE[0], low=NOISE_LOW_RANGE[1])
-        self.p = np.random.uniform(high=NOISE_P_RANGE[0], low=NOISE_P_RANGE[1])
+        self.high = NOISE_HIGH
+        self.low = NOISE_LOW
+        self.p = NOISE_P
 
     def __call__(self, spectrogram: t.Any) -> t.Any:
         value = np.mean(spectrogram)
@@ -118,41 +118,6 @@ class Noise:
         )
         masked = spectrogram * (mask + fill_values)
         return masked
-
-
-class RandomCrop1d:
-    def __init__(self, length: int) -> None:
-        self.length = length
-
-    def __call__(self, x: t.Any, y: t.Any) -> t.Tuple[t.Any, t.Any]:
-        shape = x.shape
-        high = shape[1] - self.length
-        start = np.random.randint(low=0, high=high)
-        return x[:, start : start + self.length], y[:, start : start + self.length]
-
-
-class RandomCrop2d:
-    def __init__(self, h: int, w: int) -> None:
-        self.h = h
-        self.w = w
-
-    def __call__(self, x: t.Any, y: t.Any) -> t.Tuple[t.Any, t.Any]:
-        shape = x.shape
-        print(x.shape)
-        print(y.shape)
-        high = shape[0] - self.h
-        width = shape[1] - self.w
-        print(high, width)
-        start_h = 0
-        if high > 0:
-            start_h = np.random.randint(low=0, high=high)
-        start_w = 0
-        if width > 0:
-            start_w = np.random.randint(low=0, high=width)
-        return (
-            x[start_h : start_h + self.h, start_w : start_w + self.w,],
-            y[start_h : start_h + self.h, start_w : start_w + self.w :],
-        )
 
 
 class HFlip1d:
@@ -179,23 +144,6 @@ class VFlip1d:
         )[0]
         if is_enable:
             return x[::-1, :].copy(), y[::-1, :].copy()
-        else:
-            return x, y
-
-
-class RandomScale:
-    def __init__(self, p: float, high: float = 1.05, low: float = 0.0) -> None:
-        self.p = p
-        self.high = high
-        self.low = low
-
-    def __call__(self, x: t.Any, y: t.Any) -> t.Tuple[t.Any, t.Any]:
-        is_enable = np.random.choice(
-            [False, True], size=(1,), p=[self.p, (1 - self.p)]
-        )[0]
-        if is_enable:
-            scale = np.random.uniform(high=self.high, low=self.low)
-            return x * scale, y * scale
         else:
             return x, y
 
@@ -232,17 +180,6 @@ class Scaler:
 
     def __call__(self, x: t.Any) -> t.Any:
         return x - self._avg
-
-
-class Merge:
-    def __init__(self, threshold: float) -> None:
-        self.threshold = threshold
-
-    def __call__(self, noise_x: t.Any, denoised_x: t.Any) -> t.Tuple[t.Any, t.Any]:
-        mask = denoised_x > self.threshold
-        res = noise_x.copy()
-        res[mask] = denoised_x[mask]
-        return res
 
 
 class Vote:

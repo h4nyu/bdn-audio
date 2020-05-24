@@ -1,10 +1,10 @@
 https://athletix.run/challenges/czaMEOxQGg
 
+execute commands in container 
 ```sh
-docker-compose run --rm app bash app train 0
-docker-compose run --rm app bash app train 1
-docker-compose run --rm app bash app train 2
-docker-compose run --rm app bash app train 3
+app train 0 1e-3 5
+
+
 
 docker-compose run --rm app bash app submit 0 1 2 3
 ```
