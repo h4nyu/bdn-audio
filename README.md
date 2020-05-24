@@ -1,4 +1,4 @@
-https://athletix.run/challenges/czaMEOxQG 1th place code
+https://athletix.run/challenges/czaMEOxQG 1st place code
 
 
 Unzip dataset into `/store`
