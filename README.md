@@ -8,7 +8,7 @@ The output score shoud be around 0.5.
 
 ```sh
 # app train <fold_index> <lr> <check_interval>
-app train 0 1e-3 5
+app train 0 1e-3 10
 ```
 
 3. Check training score with all models.
