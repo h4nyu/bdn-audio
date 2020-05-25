@@ -175,7 +175,7 @@ def train(fold_idx: int, lr: float, check_interval: int) -> None:
     raw_audios = load_audios(RAW_TGT_DIR)
     kf = KFold(n_split=4)
     train_data, test_data = list(kf(raw_audios))[fold_idx]
-    resolution = (128, 160)
+    resolution = (128, 128)
     train_dataset = Dataset(
         train_data * check_interval, resolution=resolution, mode="train",
     )

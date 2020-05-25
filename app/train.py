@@ -54,7 +54,7 @@ class Trainer:
         self.output_dir.mkdir(exist_ok=True)
         self.checkpoint_path = self.output_dir.joinpath("checkpoint.json")
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-            self.optimizer, patience=10, verbose=True, factor=0.5, eps=lr*1e-2
+            self.optimizer, patience=10, verbose=True, factor=0.5, eps=lr * 1e-2
         )
 
         if self.checkpoint_path.exists():
@@ -113,9 +113,7 @@ class Trainer:
                 preds = [pred, h_pred, v_pred]
                 pred = mean_vote(preds)
                 epoch_loss += loss.item()
-                x, y = [
-                    np.abs(i[0].detach().cpu().numpy()) for i in [img, label]
-                ]
+                x, y = [np.abs(i[0].detach().cpu().numpy()) for i in [img, label]]
                 score += mean_squared_error(pred, y,)
                 base_score += mean_squared_error(x, y,)
 
@@ -145,7 +143,9 @@ class Trainer:
             self.epoch = epoch
             train_loss = self.train_one_epoch()
             eval_loss, base_score, score = self.eval_one_epoch()
-            logger.info(f"{epoch=} {train_loss=} {eval_loss=} {base_score=} {score=}")
+            logger.info(
+                f"{epoch=} {train_loss=:.4f} {eval_loss=:.4f} {base_score=:.4f} {score=:.4f}"
+            )
             self.scheduler.step(train_loss)
             if score < self.best_score:
                 logger.info("update model")

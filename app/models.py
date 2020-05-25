@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
-from torch.nn import LeakyReLU as Activation
+from torch.nn import ReLU as Activation
 
 
 class ConvBR2d(nn.Module):
@@ -206,11 +206,10 @@ class UNet2d(nn.Module):
         )
         self.down1 = Down2d(base_channel, base_channel * 2, pool="max")
         self.down2 = Down2d(base_channel * 2, base_channel * 4, pool="max")
-        self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=True, merge=True)
-        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=True, merge=True)
+        self.up2 = Up2d(base_channel * 4, base_channel * 2, bilinear=False, merge=True)
+        self.up1 = Up2d(base_channel * 2, base_channel, bilinear=False, merge=True)
 
         self.outc = nn.Sequential(
-            SENextBottleneck2d(base_channel, base_channel),
             SENextBottleneck2d(base_channel, base_channel),
             SENextBottleneck2d(base_channel, base_channel),
             nn.Conv2d(base_channel, 1, kernel_size=1, stride=1, padding=0),

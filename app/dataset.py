@@ -32,7 +32,6 @@ class Dataset(_Dataset):
     def transform(self, audio: Audio) -> t.Tuple[t.Any, t.Any]:
         raw = audio.spectrogram.copy()
         noised = Noise()(raw.copy())
-        _max = np.max(noised)
         if self.mode == "train":
             _, w = raw.shape
             if w < self.resolution[1]:
@@ -63,5 +62,4 @@ class PredictDataset(_Dataset):
     def __getitem__(self, idx: int) -> t.Tuple[t.Any, str]:
         row = self.audios[idx]
         sp = row.spectrogram
-        _max = np.max(sp)
         return sp, row.id
